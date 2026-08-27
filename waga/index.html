@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0B1216">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- ARTIFACT:BEGIN -->
+<title>Waga Ekranowa S-1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* ─── Tokeny ─────────────────────────────────────────────────────────────── */
+:root{
+  --bg:#E9ECEE;          /* chłodny papier, nie krem */
+  --panel:#FFFFFF;
+  --panel-2:#F3F5F7;
+  --ink:#0F171B;
+  --muted:#5D6E76;
+  --line:#D2D9DD;
+  --accent:#BF5119;      /* miedź / sygnał */
+  --accent-soft:rgba(191,81,25,.12);
+  --ok:#1C7A5B;
+  --ok-soft:rgba(28,122,91,.12);
+  --warn:#946200;
+  --shadow:0 1px 2px rgba(15,23,27,.06), 0 12px 32px -12px rgba(15,23,27,.22);
+  --pan-grad:radial-gradient(120% 90% at 50% 0%, #FFFFFF 0%, #EDF1F3 60%, #E2E8EB 100%);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1216;
+    --panel:#131E23;
+    --panel-2:#0F191E;
+    --ink:#E9EFF1;
+    --muted:#8AA0A8;
+    --line:#22333A;
+    --accent:#F2803C;
+    --accent-soft:rgba(242,128,60,.16);
+    --ok:#42C295;
+    --ok-soft:rgba(66,194,149,.16);
+    --warn:#E0A73F;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 18px 40px -16px rgba(0,0,0,.7);
+    --pan-grad:radial-gradient(120% 90% at 50% 0%, #1A272E 0%, #142026 55%, #0E181D 100%);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1216; --panel:#131E23; --panel-2:#0F191E; --ink:#E9EFF1; --muted:#8AA0A8;
+  --line:#22333A; --accent:#F2803C; --accent-soft:rgba(242,128,60,.16);
+  --ok:#42C295; --ok-soft:rgba(66,194,149,.16); --warn:#E0A73F;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 18px 40px -16px rgba(0,0,0,.7);
+  --pan-grad:radial-gradient(120% 90% at 50% 0%, #1A272E 0%, #142026 55%, #0E181D 100%);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-variation-settings:"wdth" 100;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+  -webkit-user-select:none; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit; color:inherit; background:none; border:none; cursor:pointer}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+.app{
+  min-height:100dvh; max-width:520px; margin:0 auto;
+  padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 14px);
+  display:flex; flex-direction:column; gap:12px;
+}
+
+/* ─── Pasek górny ────────────────────────────────────────────────────────── */
+.bar{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.brand{display:flex; align-items:baseline; gap:8px; font-weight:700; letter-spacing:.16em; font-size:13px;
+  font-variation-settings:"wdth" 112; text-transform:uppercase}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);align-self:center;
+  box-shadow:0 0 0 3px var(--accent-soft)}
+.brand .model{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); letter-spacing:.08em}
+.badge{
+  display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:999px;
+  border:1px solid var(--line); background:var(--panel); font-size:11.5px; letter-spacing:.08em;
+  text-transform:uppercase; font-weight:600; color:var(--muted);
+}
+.badge .led{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.badge[data-state="ok"]{color:var(--ok); border-color:color-mix(in srgb, var(--ok) 40%, var(--line))}
+.badge[data-state="ok"] .led{background:var(--ok); box-shadow:0 0 8px var(--ok)}
+.badge[data-state="approx"]{color:var(--warn); border-color:color-mix(in srgb, var(--warn) 40%, var(--line))}
+.badge[data-state="approx"] .led{background:var(--warn)}
+.badge[data-state="none"]{color:var(--accent); border-color:color-mix(in srgb, var(--accent) 40%, var(--line))}
+.badge[data-state="none"] .led{background:var(--accent)}
+
+/* ─── Szalka ─────────────────────────────────────────────────────────────── */
+.pan{
+  position:relative; flex:1; min-height:340px; border-radius:26px; overflow:hidden;
+  background:var(--pan-grad); border:1px solid var(--line); box-shadow:var(--shadow);
+  display:grid; place-items:center; touch-action:none;
+  transition:border-color .2s ease;
+}
+.pan.live{border-color:color-mix(in srgb, var(--accent) 55%, var(--line))}
+.pan.hold{border-color:color-mix(in srgb, var(--ok) 60%, var(--line))}
+
+/* pierścienie celownika */
+.rings{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none}
+.ring{position:absolute; border-radius:50%; border:1px solid var(--line); opacity:.8}
+.ring.r1{width:150px;height:150px}
+.ring.r2{width:230px;height:230px}
+.ring.r3{width:310px;height:310px; opacity:.5}
+.cross{position:absolute; background:var(--line); opacity:.7}
+.cross.h{width:270px;height:1px}
+.cross.v{width:1px;height:270px}
+.pulse{
+  position:absolute; width:150px; height:150px; border-radius:50%;
+  background:radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  transform:scale(var(--p,0)); opacity:calc(.35 + var(--p,0)*.65);
+  transition:transform .09s linear, opacity .09s linear;
+}
+
+.readout{position:relative; display:flex; flex-direction:column; align-items:center; gap:2px; z-index:1}
+.value{
+  font-family:"IBM Plex Mono", ui-monospace, monospace; font-weight:500;
+  font-size:clamp(56px, 19vw, 92px); line-height:.95; letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:.12em;
+}
+.value .u{font-size:.30em; font-weight:600; color:var(--muted); letter-spacing:.06em}
+.value.negzero{color:var(--muted)}
+.pan.hold .value{color:var(--ok)}
+.sub{
+  font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); min-height:16px;
+}
+.pan.hold .sub{color:var(--ok)}
+
+.stamp{
+  position:absolute; top:14px; left:14px; right:14px; display:flex; justify-content:space-between;
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted); pointer-events:none;
+}
+
+/* ─── Miernik surowego sygnału ───────────────────────────────────────────── */
+.meter{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 14px;
+  display:flex; flex-direction:column; gap:9px; box-shadow:var(--shadow)}
+.meter .row{display:flex; justify-content:space-between; align-items:center;
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--muted)}
+.track{position:relative; height:8px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden}
+.fill{position:absolute; inset:0 auto 0 0; width:0%; background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--ok)));
+  transition:width .08s linear}
+.peak{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--ink); opacity:.55; left:0; transition:left .12s ease}
+
+/* ─── Narzędzia ──────────────────────────────────────────────────────────── */
+.tools{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.tool{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:11px 6px 9px;
+  display:flex; flex-direction:column; align-items:center; gap:5px; box-shadow:var(--shadow);
+  font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:600; color:var(--muted);
+  transition:transform .12s ease, border-color .12s ease, color .12s ease;
+}
+.tool:active{transform:scale(.96)}
+.tool .ic{font-size:17px; line-height:1; color:var(--ink)}
+.tool.primary{border-color:color-mix(in srgb, var(--accent) 50%, var(--line)); color:var(--accent)}
+.tool.primary .ic{color:var(--accent)}
+
+/* ─── Arkusze ────────────────────────────────────────────────────────────── */
+.scrim{position:fixed; inset:0; background:rgba(4,10,13,.55); backdrop-filter:blur(3px);
+  opacity:0; pointer-events:none; transition:opacity .22s ease; z-index:20}
+.scrim.open{opacity:1; pointer-events:auto}
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:21; max-width:520px; margin:0 auto;
+  background:var(--panel); border:1px solid var(--line); border-bottom:none;
+  border-radius:22px 22px 0 0; padding:8px 18px calc(env(safe-area-inset-bottom) + 18px);
+  transform:translateY(101%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+  max-height:86dvh; overflow-y:auto; overscroll-behavior:contain; box-shadow:var(--shadow);
+}
+.sheet.open{transform:translateY(0)}
+.grab{width:38px;height:4px;border-radius:99px;background:var(--line); margin:6px auto 14px}
+.sheet h2{margin:0 0 4px; font-size:19px; font-variation-settings:"wdth" 108; text-wrap:balance}
+.sheet .lede{margin:0 0 16px; color:var(--muted); font-size:13.5px; line-height:1.55; max-width:60ch}
+.sheet p{font-size:13.5px; line-height:1.6; color:var(--muted); max-width:62ch}
+.sheet strong{color:var(--ink); font-weight:600}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); margin-bottom:6px}
+
+.steps{display:flex; flex-direction:column; gap:10px; margin:0 0 16px; padding:0; list-style:none}
+.step{display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:start;
+  padding:12px; border:1px solid var(--line); border-radius:13px; background:var(--panel-2)}
+.step[data-done="1"]{border-color:color-mix(in srgb, var(--ok) 45%, var(--line))}
+.step .n{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent); font-weight:600; padding-top:1px}
+.step[data-done="1"] .n{color:var(--ok)}
+.step .t{font-size:13.5px; font-weight:600}
+.step .d{font-size:12.5px; color:var(--muted); line-height:1.5; margin-top:2px}
+
+.field{display:flex; gap:8px; align-items:center; margin-top:8px}
+.field input{
+  flex:1; min-width:0; font-family:"IBM Plex Mono",monospace; font-size:15px; padding:10px 12px;
+  border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+}
+.btn{
+  padding:11px 16px; border-radius:11px; border:1px solid var(--line); background:var(--panel-2);
+  font-size:12.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
+}
+.btn.solid{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45}
+.btnrow{display:flex; gap:8px; margin-top:14px}
+.btnrow .btn{flex:1; text-align:center}
+
+.hist{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
+.hist li{display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  padding:12px 2px; border-bottom:1px solid var(--line); font-family:"IBM Plex Mono",monospace}
+.hist li:last-child{border-bottom:none}
+.hist .m{font-size:17px; font-variant-numeric:tabular-nums}
+.hist .t{font-size:11px; color:var(--muted); letter-spacing:.08em}
+.empty{text-align:center; color:var(--muted); font-size:13px; padding:26px 0}
+
+.spec{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-family:"IBM Plex Mono",monospace;
+  font-size:12px; margin:14px 0 4px; padding-top:14px; border-top:1px solid var(--line)}
+.spec dt{color:var(--muted); letter-spacing:.08em; text-transform:uppercase; font-size:10.5px; padding-top:2px}
+.spec dd{margin:0; color:var(--ink); font-variant-numeric:tabular-nums}
+
+.toast{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 96px); transform:translate(-50%,14px);
+  background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:999px; font-size:12.5px;
+  font-weight:600; letter-spacing:.04em; opacity:0; pointer-events:none; transition:all .22s ease; z-index:30;
+}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:reduce){ *{transition-duration:.01ms !important; animation-duration:.01ms !important} }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand"><span class="dot"></span>Waga<span class="model">S-1</span></div>
+    <button class="badge" id="badge" data-state="wait" aria-live="polite">
+      <span class="led"></span><span id="badgeText">wykrywanie…</span>
+    </button>
+  </header>
+
+  <main class="pan" id="pan" role="application" aria-label="Pole pomiarowe">
+    <div class="stamp"><span id="modeStamp">—</span><span id="calStamp">bez kalibracji</span></div>
+    <div class="rings">
+      <div class="pulse" id="pulse"></div>
+      <div class="cross h"></div><div class="cross v"></div>
+      <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+    </div>
+    <div class="readout">
+      <div class="value" id="value">0.0<span class="u" id="unit">g</span></div>
+      <div class="sub" id="sub">połóż lub naciśnij</div>
+    </div>
+  </main>
+
+  <section class="meter">
+    <div class="row"><span>sygnał czujnika</span><span id="rawOut">0.000</span></div>
+    <div class="track"><div class="fill" id="fill"></div><div class="peak" id="peak"></div></div>
+    <div class="row"><span id="ptsOut">0 punktów styku</span><span id="stabOut">—</span></div>
+  </section>
+
+  <nav class="tools">
+    <button class="tool primary" id="btnTare"><span class="ic">◎</span>Tara</button>
+    <button class="tool" id="btnCal"><span class="ic">⚖</span>Kalibracja</button>
+    <button class="tool" id="btnUnit"><span class="ic">⇄</span><span id="unitLabel">gramy</span></button>
+    <button class="tool" id="btnHist"><span class="ic">☰</span>Pomiary</button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- Kalibracja -->
+<section class="sheet" id="sheetCal" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="eyebrow">Procedura</div>
+  <h2>Kalibracja wzorcem</h2>
+  <p class="lede">Ekran zwraca bezwymiarowy nacisk od 0 do 1. Żeby zamienić go na gramy, waga potrzebuje jednego przedmiotu o znanej masie.</p>
+  <ol class="steps">
+    <li class="step" id="calStep1" data-done="0">
+      <span class="n">01</span>
+      <div>
+        <div class="t">Zero</div>
+        <div class="d">Nic nie dotyka ekranu. Trzymaj telefon na stole.</div>
+        <div class="btnrow"><button class="btn" id="btnCalZero">Ustaw zero</button></div>
+      </div>
+    </li>
+    <li class="step" id="calStep2" data-done="0">
+      <span class="n">02</span>
+      <div>
+        <div class="t">Wzorzec</div>
+        <div class="d">Podaj masę wzorca. Moneta 5 zł = 6,54 g, 2 zł = 5,21 g, 1 zł = 5,00 g, 50 gr = 3,94 g.</div>
+        <div class="field">
+          <input id="calMass" type="number" inputmode="decimal" step="0.01" min="0.1" value="6.54" aria-label="Masa wzorca w gramach">
+          <span class="btn ghost">g</span>
+        </div>
+      </div>
+    </li>
+    <li class="step" id="calStep3" data-done="0">
+      <span class="n">03</span>
+      <div>
+        <div class="t">Pomiar wzorca</div>
+        <div class="d">Naciśnij „Mierz”, potem przez 3 s dociskaj wzorzec na środku pola pomiarowego.</div>
+        <div class="btnrow"><button class="btn solid" id="btnCalGo">Mierz 3 s</button></div>
+      </div>
+    </li>
+  </ol>
+  <div class="btnrow">
+    <button class="btn ghost" id="btnCalReset">Skasuj kalibrację</button>
+    <button class="btn" data-close>Zamknij</button>
+  </div>
+  <dl class="spec">
+    <dt>Zero</dt><dd id="specZero">—</dd>
+    <dt>Skala</dt><dd id="specScale">—</dd>
+    <dt>Data</dt><dd id="specDate">—</dd>
+  </dl>
+</section>
+
+<!-- Historia -->
+<section class="sheet" id="sheetHist" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="eyebrow">Dziennik</div>
+  <h2>Zapisane pomiary</h2>
+  <p class="lede">Waga zapisuje odczyt automatycznie, gdy ustabilizuje się na dłużej niż sekundę.</p>
+  <ul class="hist" id="histList"></ul>
+  <div class="btnrow">
+    <button class="btn ghost" id="btnHistClear">Wyczyść</button>
+    <button class="btn" data-close>Zamknij</button>
+  </div>
+</section>
+
+<!-- Info -->
+<section class="sheet" id="sheetInfo" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="eyebrow">Jak to działa</div>
+  <h2 id="infoTitle">Czujnik nacisku</h2>
+  <div id="infoBody"></div>
+  <div class="btnrow"><button class="btn" data-close>Rozumiem</button></div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ── Stan ────────────────────────────────────────────────────────────────── */
+const LS = "waga.s1.v1";
+const store = {
+  read(){ try{ return JSON.parse(localStorage.getItem(LS)) || {}; }catch(e){ return {}; } },
+  write(o){ try{ localStorage.setItem(LS, JSON.stringify(o)); }catch(e){} }
+};
+let cfg = Object.assign({ zero:0, scale:0, calAt:null, unit:"g", history:[] }, store.read());
+const save = () => store.write(cfg);
+
+const UNITS = {
+  g:  { label:"gramy",  sym:"g",  from:g=>g,           dec:1 },
+  oz: { label:"uncje",  sym:"oz", from:g=>g/28.349523, dec:3 },
+  ct: { label:"karaty", sym:"ct", from:g=>g/0.2,       dec:2 }
+};
+
+const $ = id => document.getElementById(id);
+const pan=$("pan"), value=$("value"), unitEl=$("unit"), sub=$("sub"), pulse=$("pulse"),
+      fill=$("fill"), peak=$("peak"), rawOut=$("rawOut"), ptsOut=$("ptsOut"), stabOut=$("stabOut"),
+      badge=$("badge"), badgeText=$("badgeText"), modeStamp=$("modeStamp"), calStamp=$("calStamp");
+
+/* ── Odczyt czujnika ─────────────────────────────────────────────────────── */
+// mode: "wait" | "force" (realny czujnik siły) | "approx" (pole styku) | "none"
+let mode = "wait";
+let sawForce = false;   // urządzenie podało nacisk inny niż stałe 0 / 0.5 / 1
+let sawArea  = false;   // urządzenie podało promień styku
+
+const pointers = new Map();   // pointerId -> {pressure, area}
+const touches  = new Map();   // touch.identifier -> {force, area}
+let raw = 0, rawSmooth = 0, peakRaw = 0;
+
+const isConst = p => p === 0 || p === 0.5 || p === 1;
+
+function notePressure(p){
+  if (p > 0 && !isConst(p)) sawForce = true;
+}
+function noteArea(rx, ry){
+  if (rx > 1 && ry > 1){ sawArea = true; return rx * ry; }
+  return 0;
+}
+
+function readPointer(e){
+  const p = (typeof e.pressure === "number") ? e.pressure : 0;
+  notePressure(p);
+  return { pressure:p, area: noteArea(e.width || 0, e.height || 0) };
+}
+
+function readTouch(t){
+  const f = (typeof t.force === "number") ? t.force : 0;
+  notePressure(f);
+  return { force:f, area: noteArea(t.radiusX || 0, t.radiusY || 0) };
+}
+
+// Pole styku → pseudo-nacisk. ~2600 jedn. traktujemy jako pełne wychylenie.
+const areaToUnit = a => Math.min(1, a / 2600);
+
+function currentRaw(){
+  // iOS wystawia realną siłę tylko przez Touch.force — ma pierwszeństwo
+  let touchForce = 0;
+  for (const t of touches.values()) touchForce += t.force;
+  if (mode === "force"){
+    if (touchForce > 0) return touchForce;
+    let sum = 0;
+    for (const p of pointers.values()) sum += p.pressure;
+    return sum;
+  }
+  let area = 0;
+  for (const t of touches.values()) area += t.area;
+  if (!area) for (const p of pointers.values()) area += p.area;
+  return areaToUnit(area);
+}
+
+function contacts(){ return Math.max(pointers.size, touches.size); }
+
+function refreshMode(){
+  const m = sawForce ? "force" : (sawArea ? "approx" : (contacts() ? "none" : mode));
+  if (m !== mode){ mode = m; paintMode(); }
+}
+
+function paintMode(){
+  const map = {
+    wait:   ["wait",  "wykrywanie…",      "czujnik: —"],
+    force:  ["ok",    "czujnik nacisku",  "tryb: force"],
+    approx: ["approx","tryb przybliżony", "tryb: pole styku"],
+    none:   ["none",  "brak nacisku",     "tryb: niedostępny"]
+  };
+  const [state, text, stamp] = map[mode] || map.wait;
+  badge.dataset.state = state;
+  badgeText.textContent = text;
+  modeStamp.textContent = stamp;
+}
+
+pan.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  pan.setPointerCapture?.(e.pointerId);
+  pointers.set(e.pointerId, readPointer(e));
+  refreshMode();
+}, { passive:false });
+
+pan.addEventListener("pointermove", e => {
+  e.preventDefault();
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, readPointer(e));
+}, { passive:false });
+
+for (const ev of ["pointerup","pointercancel","pointerleave"]){
+  pan.addEventListener(ev, e => {
+    e.preventDefault();
+    pointers.delete(e.pointerId);
+    refreshMode();
+  }, { passive:false });
+}
+
+for (const ev of ["touchstart","touchmove"]){
+  pan.addEventListener(ev, e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) touches.set(t.identifier, readTouch(t));
+    refreshMode();
+  }, { passive:false });
+}
+for (const ev of ["touchend","touchcancel"]){
+  pan.addEventListener(ev, e => {
+    for (const t of e.changedTouches) touches.delete(t.identifier);
+    refreshMode();
+  }, { passive:true });
+}
+
+/* ── Filtracja i stabilność ──────────────────────────────────────────────── */
+const win = [];            // okno medianowe
+const hist = [];           // ostatnie ~1.5 s wygładzonych odczytów (do oceny stabilności)
+const MEDIAN_N = 7, HIST_N = 45;
+const median = a => { const s=[...a].sort((x,y)=>x-y); return s[s.length>>1]; };
+
+let stableSince = 0, held = null, lastLogged = 0;
+
+function grams(r){
+  if (!cfg.scale) return null;
+  return Math.max(0, (r - cfg.zero) * cfg.scale);
+}
+
+function tick(){
+  raw = currentRaw();
+  win.push(raw); if (win.length > MEDIAN_N) win.shift();
+  const med = median(win);
+  rawSmooth += (med - rawSmooth) * 0.28;
+  if (rawSmooth > peakRaw) peakRaw = rawSmooth;
+
+  hist.push(rawSmooth); if (hist.length > HIST_N) hist.shift();
+
+  const active = contacts() > 0;
+  pan.classList.toggle("live", active);
+
+  // odchylenie standardowe okna → stabilność
+  let sd = 1;
+  if (hist.length >= 12){
+    const m = hist.reduce((a,b)=>a+b,0)/hist.length;
+    sd = Math.sqrt(hist.reduce((a,b)=>a+(b-m)*(b-m),0)/hist.length);
+  }
+  const g = grams(rawSmooth);
+  const meaningful = active && rawSmooth > cfg.zero + 0.02;
+  const steady = meaningful && sd < 0.012;
+
+  const now = performance.now();
+  if (steady){
+    if (!stableSince) stableSince = now;
+    if (now - stableSince > 900 && held === null){
+      held = g;
+      pan.classList.add("hold");
+      navigator.vibrate?.(18);
+      if (g !== null && now - lastLogged > 1500){ logMeasurement(g); lastLogged = now; }
+    }
+  } else {
+    stableSince = 0;
+    if (!active){ held = null; pan.classList.remove("hold"); }
+  }
+
+  render(g, active, steady);
+  requestAnimationFrame(tick);
+}
+
+/* ── Rysowanie ───────────────────────────────────────────────────────────── */
+function fmt(g){
+  const u = UNITS[cfg.unit];
+  return u.from(g).toFixed(u.dec);
+}
+
+function render(g, active, steady){
+  const u = UNITS[cfg.unit];
+  unitEl.textContent = u.sym;
+
+  const shown = held !== null ? held : g;
+  if (shown === null){
+    value.firstChild.nodeValue = cfg.scale ? "0.0" : "––.–";
+    value.classList.toggle("negzero", true);
+  } else {
+    value.firstChild.nodeValue = fmt(shown);
+    value.classList.toggle("negzero", shown < 0.05);
+  }
+
+  if (!cfg.scale)          sub.textContent = "wymaga kalibracji";
+  else if (held !== null)  sub.textContent = "◼ zatrzymano";
+  else if (steady)         sub.textContent = "stabilizacja…";
+  else if (active)         sub.textContent = "pomiar";
+  else                     sub.textContent = "połóż lub naciśnij";
+
+  const norm = Math.min(1, rawSmooth);
+  pulse.style.setProperty("--p", (0.25 + norm*1.9).toFixed(3));
+  fill.style.width = (norm*100).toFixed(1) + "%";
+  peak.style.left = (Math.min(1, peakRaw)*100).toFixed(1) + "%";
+  rawOut.textContent = rawSmooth.toFixed(3);
+  const n = contacts();
+  ptsOut.textContent = n === 1 ? "1 punkt styku" : n + " punktów styku";
+  stabOut.textContent = held !== null ? "hold" : (steady ? "stabilny" : (active ? "ruch" : "—"));
+}
+
+/* ── Historia ────────────────────────────────────────────────────────────── */
+function logMeasurement(g){
+  cfg.history.unshift({ g, unit:cfg.unit, at:Date.now() });
+  cfg.history = cfg.history.slice(0, 50);
+  save(); paintHistory();
+}
+
+function paintHistory(){
+  const list = $("histList");
+  if (!cfg.history.length){
+    list.innerHTML = '<li class="empty">Brak pomiarów. Ustabilizuj odczyt, a zapisze się sam.</li>';
+    return;
+  }
+  list.innerHTML = cfg.history.map(h => {
+    const u = UNITS[h.unit] || UNITS.g;
+    const d = new Date(h.at);
+    const t = d.toLocaleString("pl-PL", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    return `<li><span class="m">${u.from(h.g).toFixed(u.dec)} ${u.sym}</span><span class="t">${t}</span></li>`;
+  }).join("");
+}
+
+/* ── Arkusze ─────────────────────────────────────────────────────────────── */
+const scrim = $("scrim");
+let openSheet = null;
+function sheet(el){
+  if (openSheet) openSheet.classList.remove("open");
+  openSheet = el || null;
+  scrim.classList.toggle("open", !!el);
+  if (el){ el.classList.add("open"); el.setAttribute("aria-hidden","false"); }
+}
+scrim.addEventListener("click", () => sheet(null));
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => sheet(null)));
+
+let toastT;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1900);
+}
+
+/* ── Kalibracja ──────────────────────────────────────────────────────────── */
+function paintCal(){
+  const has = !!cfg.scale;
+  calStamp.textContent = has ? "skalibrowana" : "bez kalibracji";
+  $("specZero").textContent  = cfg.zero.toFixed(4);
+  $("specScale").textContent = has ? cfg.scale.toFixed(1) + " g / jedn." : "—";
+  $("specDate").textContent  = cfg.calAt ? new Date(cfg.calAt).toLocaleDateString("pl-PL") : "—";
+  $("calStep1").dataset.done = cfg.calAt ? "1" : "0";
+  $("calStep3").dataset.done = has ? "1" : "0";
+}
+
+$("btnCalZero").addEventListener("click", () => {
+  if (contacts()){ toast("Zdejmij wszystko z ekranu"); return; }
+  cfg.zero = rawSmooth; cfg.calAt = Date.now(); save(); paintCal();
+  toast("Zero ustawione");
+});
+
+$("btnCalGo").addEventListener("click", async () => {
+  const mass = parseFloat($("calMass").value);
+  if (!(mass > 0)){ toast("Podaj masę wzorca"); return; }
+  const btn = $("btnCalGo"); btn.disabled = true;
+  const samples = [];
+  for (let i = 0; i < 30; i++){
+    await new Promise(r => setTimeout(r, 100));
+    btn.textContent = "Mierzę… " + (3 - Math.floor(i/10)) + " s";
+    if (contacts()) samples.push(rawSmooth);
+  }
+  btn.disabled = false; btn.textContent = "Mierz 3 s";
+  if (samples.length < 8){ toast("Za mało kontaktu z ekranem"); return; }
+  const delta = median(samples) - cfg.zero;
+  if (delta <= 0.01){ toast("Czujnik nie zarejestrował nacisku"); return; }
+  cfg.scale = mass / delta; cfg.calAt = Date.now(); save(); paintCal();
+  $("calStep2").dataset.done = "1";
+  toast("Skalibrowano: " + mass.toFixed(2) + " g");
+});
+
+$("btnCalReset").addEventListener("click", () => {
+  cfg.zero = 0; cfg.scale = 0; cfg.calAt = null; save(); paintCal(); toast("Kalibracja skasowana");
+});
+
+/* ── Przyciski ───────────────────────────────────────────────────────────── */
+$("btnTare").addEventListener("click", () => {
+  cfg.zero = rawSmooth; save(); paintCal();
+  peakRaw = 0; held = null; pan.classList.remove("hold");
+  navigator.vibrate?.(12);
+  toast(contacts() ? "Tara z obciążeniem" : "Wyzerowano");
+});
+$("btnCal").addEventListener("click", () => { paintCal(); sheet($("sheetCal")); });
+$("btnHist").addEventListener("click", () => { paintHistory(); sheet($("sheetHist")); });
+$("btnUnit").addEventListener("click", () => {
+  const keys = Object.keys(UNITS);
+  cfg.unit = keys[(keys.indexOf(cfg.unit) + 1) % keys.length];
+  $("unitLabel").textContent = UNITS[cfg.unit].label;
+  save();
+});
+badge.addEventListener("click", () => { paintInfo(); sheet($("sheetInfo")); });
+
+/* ── Ekran informacyjny ──────────────────────────────────────────────────── */
+function paintInfo(){
+  const texts = {
+    force: {
+      t: "Czujnik nacisku aktywny",
+      b: `<p>Twój ekran zwraca <strong>rzeczywistą siłę nacisku</strong>, a nie samo miejsce dotknięcia. To ta sama wartość, której używa Force Touch / 3D Touch.</p>
+          <p>Aplikacja uśrednia sygnał filtrem medianowym i wykładniczym, a po ustabilizowaniu na 0,9 s blokuje odczyt i zapisuje go w dzienniku.</p>
+          <p><strong>Ważne:</strong> ekran mierzy nacisk, a nie masę. Przedmiot położony luźno prawie nic nie naciska — odczyt ma sens, gdy dociskasz przedmiot palcem albo trzymasz telefon pionowo i opierasz o ekran.</p>`
+    },
+    approx: {
+      t: "Tryb przybliżony",
+      b: `<p>Ten ekran nie ma czujnika siły. Aplikacja szacuje nacisk z <strong>powierzchni styku</strong> — im mocniej dociskasz palec, tym bardziej się spłaszcza i tym większy ślad widzi ekran.</p>
+          <p>Działa to tylko dla palca i tylko orientacyjnie. Twarde przedmioty mają stałą powierzchnię styku, więc ich nie zważysz.</p>`
+    },
+    none: {
+      t: "Ekran nie mierzy siły",
+      b: `<p>Twoja przeglądarka zwraca stały nacisk (0 albo 1), więc nie ma z czego liczyć masy. To normalne na większości sprzętu.</p>
+          <p>Realny czujnik siły mają: <strong>iPhone 6s – XS</strong> (3D Touch), <strong>Apple Watch</strong> (Force Touch), Huawei Mate S, ZTE Axon mini oraz część rysików. Apple usunął 3D Touch w iPhonie 11 i późniejszych — Haptic Touch mierzy tylko czas, nie siłę.</p>
+          <p>Na Androidzie sygnał często pojawia się dopiero po pierwszym mocniejszym dotknięciu — spróbuj przycisnąć pole pomiarowe kciukiem.</p>`
+    },
+    wait: {
+      t: "Wykrywanie czujnika",
+      b: `<p>Dotknij pola pomiarowego, żeby aplikacja sprawdziła, czy Twój ekran zwraca siłę nacisku.</p>`
+    }
+  };
+  const x = texts[mode] || texts.wait;
+  $("infoTitle").textContent = x.t;
+  $("infoBody").innerHTML = x.b + `
+    <p style="margin-top:14px">Sposób użycia: <strong>Tara</strong> zeruje wskazanie, <strong>Kalibracja</strong> przelicza sygnał na gramy przy pomocy monety o znanej masie, a jednostkę przełączysz między gramami, uncjami i karatami.</p>`;
+}
+
+/* ── Start ───────────────────────────────────────────────────────────────── */
+$("unitLabel").textContent = UNITS[cfg.unit].label;
+paintMode(); paintCal(); paintHistory();
+document.addEventListener("gesturestart", e => e.preventDefault());
+if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+// pierwsze uruchomienie → wyjaśnij zasadę działania
+if (!cfg.calAt && !cfg.history.length){
+  setTimeout(() => { paintInfo(); sheet($("sheetInfo")); }, 700);
+}
+requestAnimationFrame(tick);
+})();
+</script>
+<!-- ARTIFACT:END -->
+</head>
+<body>
+</body>
+</html>
