@@ -1,21 +1,35 @@
 package pl.piny.waga
 
 import android.os.Looper
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.widget.TextView
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowChoreographer
 import java.time.Duration
 import kotlin.math.exp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class MainActivityTest {
+
+    /**
+     * Bez tego Robolectric wykonuje klatki natychmiast i pętla pomiarowa,
+     * przeplanowując się w kółko, nigdy nie pozwala dokończyć startu aktywności.
+     * Zatrzymany Choreographer wiąże klatki z zegarem — testy sterują nimi same.
+     */
+    @Before
+    fun pauseFrames() {
+        ShadowChoreographer.setPaused(true)
+        ShadowChoreographer.setFrameDelay(Duration.ofMillis(16))
+    }
 
     private fun rawFor(mass: Double) = 1 - exp(-mass / 10.0)
 
@@ -39,6 +53,22 @@ class MainActivityTest {
 
     private fun launch(): MainActivity =
         Robolectric.buildActivity(MainActivity::class.java).setup().get()
+
+    @Test
+    fun `symulowany zegar i petla klatek naprawde plyna`() {
+        val a = launch()
+        val t0 = SystemClock.uptimeMillis()
+        val before = a.findViewById<TextView>(R.id.rawOut).text.toString()
+        val pan = a.findViewById<PanView>(R.id.pan)
+        touch(pan, MotionEvent.ACTION_DOWN, 0.4f)
+        idle(1000)
+        val dt = SystemClock.uptimeMillis() - t0
+        assertTrue("zegar musi płynąć, minęło $dt ms", dt >= 900)
+        assertTrue(
+            "pętla klatek musi odświeżać sygnał: '$before' -> '${a.findViewById<TextView>(R.id.rawOut).text}'",
+            a.findViewById<TextView>(R.id.rawOut).text.toString() != before
+        )
+    }
 
     @Test
     fun `aplikacja startuje i pokazuje komplet elementow`() {
@@ -74,16 +104,31 @@ class MainActivityTest {
         // najpierw narastający docisk — waga musi zobaczyć zmienność, żeby uznać
         // ekran za czujnik siły, a nie zejść na kanał powierzchniowy
         touch(pan, MotionEvent.ACTION_DOWN, 0.08f)
-        listOf(0.20f, 0.35f, 0.50f).forEach { touch(pan, MotionEvent.ACTION_MOVE, it); idle(50) }
+        listOf(0.15f, 0.23f, 0.31f, 0.39f, 0.47f, 0.56f)
+            .forEach { touch(pan, MotionEvent.ACTION_MOVE, it); idle(50) }
         assertTrue("ekran musi zostać uznany za czujnik siły", pan.probe.hasForceSensor)
 
-        repeat(50) {
-            touch(pan, MotionEvent.ACTION_MOVE, rawFor(10.0).toFloat() + (it % 2) * 0.0005f)
+        // trzymamy spokojny docisk aż waga sama zatrzyma odczyt — liczba klatek na
+        // jedno „idle" zależy od Robolectrica, więc czekamy na stan, nie na iteracje
+        var guard = 0
+        while (a.lastReading?.state != ScaleState.HOLD && guard++ < 400) {
+            touch(pan, MotionEvent.ACTION_MOVE, rawFor(10.0).toFloat() + (guard % 2) * 0.0005f)
             idle(50)
         }
+        assertEquals(
+            "waga musi zatrzymać odczyt (odchylenie ${a.lastReading?.stability})",
+            ScaleState.HOLD, a.lastReading?.state
+        )
         val shown = a.findViewById<TextView>(R.id.value).text.toString().replace(',', '.').toDouble()
         assertEquals("odczyt w gramach", 10.0, shown, 1.0)
-        assertTrue("pomiar trafia do dziennika", store.history.isNotEmpty())
+        assertTrue(
+            "pomiar trafia do dziennika (stan: '${a.findViewById<TextView>(R.id.sub).text}', " +
+                "sygnał: '${a.findViewById<TextView>(R.id.rawOut).text}', " +
+                "kontakt: '${a.findViewById<TextView>(R.id.contactsOut).text}', " +
+                "odchylenie: ${a.lastReading?.stability}, próbek: ${a.lastReading?.samples}, " +
+                "stan: ${a.lastReading?.state}, tara: ${a.lastReading?.tare})",
+            store.history.isNotEmpty()
+        )
         assertTrue(a.findViewById<TextView>(R.id.sub).text.toString().contains("zatrzymano"))
     }
 

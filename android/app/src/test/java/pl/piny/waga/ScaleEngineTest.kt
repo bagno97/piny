@@ -145,6 +145,26 @@ class ScaleEngineTest {
     }
 
     @Test
+    fun `narastajacy docisk a potem spokoj konczy sie zatrzymaniem odczytu`() {
+        val e = engine()
+        var t = 0L
+        // docisk narasta, jak przy prawdziwym kładzeniu przedmiotu
+        for (p in listOf(0.08, 0.15, 0.23, 0.31, 0.39, 0.47, 0.56)) {
+            repeat(3) { e.update(p, 1, false, t); t += 16 }
+        }
+        var captures = 0
+        var last: Reading? = null
+        repeat(150) {
+            val r = e.update(rawFor(10.0) + (it % 2) * 0.0005, 1, false, t)
+            if (r.captured != null) captures++
+            last = r; t += 16
+        }
+        assertEquals("po uspokojeniu odczyt musi zostać zatrzymany", ScaleState.HOLD, last!!.state)
+        assertEquals(1, captures)
+        assertTrue("odchylenie po uspokojeniu: ${last!!.stability}", last!!.stability < ScaleEngine.STABLE_SD)
+    }
+
+    @Test
     fun `bardzo lekki dotyk nie jest zapisywany jako pomiar`() {
         val e = engine()
         var t = 0L

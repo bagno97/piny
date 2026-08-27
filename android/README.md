@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 37 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 39 testów, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -33,6 +33,22 @@ starą wersję. Własny klucz robi się raz:
 keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
+
+Gotowy plik do zainstalowania leży w `dist/waga-1.0.apk` (1,7 MB, podpisany,
+minSdk 24). Suma kontrolna jest obok, w pliku `.sha256`.
+
+## Testy
+
+39 testów uruchamianych na JVM, bez emulatora:
+
+- `CalibrationTest` — krzywa na symulowanym czujniku nieliniowym, limit
+  ekstrapolacji, odrzucanie błędnych wzorców
+- `ScaleEngineTest` — tara, zatrzymanie odczytu i jego zwalnianie, przeciążenie,
+  brak migotania ostatniej cyfry
+- `UnitsTest` — przeliczniki wobec definicji (20 dwt = 1 ozt, 480 gr = 1 ozt)
+- `PressureProbeTest` — stały nacisk z drgającym bitem nie uchodzi za czujnik
+- `MainActivityTest` — Robolectric: start aktywności, prawdziwe zdarzenia
+  `MotionEvent` z naciskiem, odczyt masy, dziennik, arkusze, wybór kanału
 
 ## Układ kodu
 

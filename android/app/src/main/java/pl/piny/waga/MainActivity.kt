@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -37,10 +38,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityMainBinding
     private lateinit var store: Store
-    private lateinit var engine: ScaleEngine
+    /** Widoczne w module, żeby testy mogły zajrzeć w stan pomiaru. */
+    internal lateinit var engine: ScaleEngine
 
     private var displayUnit = DisplayUnit.GRAMS
     private var lastMass: Double? = null
+    internal var lastReading: Reading? = null
     private var running = false
 
     private lateinit var panBackground: GradientDrawable
@@ -51,6 +54,14 @@ class MainActivity : AppCompatActivity() {
     private var colPanel = 0; private var colPanel2 = 0; private var colWarn = 0
 
     private val ui = Handler(Looper.getMainLooper())
+
+    /**
+     * Ustawia tekst tylko przy realnej zmianie. Bez tego każde odświeżenie napisu
+     * wymusza przeliczenie układu 60 razy na sekundę, choć treść stoi w miejscu.
+     */
+    private fun TextView.setTextIfChanged(value: CharSequence) {
+        if (text?.toString() != value.toString()) text = value
+    }
 
     private val frame = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -195,8 +206,10 @@ class MainActivity : AppCompatActivity() {
             rawSum = b.pan.signal(),
             contacts = b.pan.sample().contacts,
             saturated = b.pan.saturated(),
-            now = System.currentTimeMillis()
+            // zegar monotoniczny: odstępy nie mogą zależeć od korekty czasu w systemie
+            now = SystemClock.uptimeMillis()
         )
+        lastReading = reading
         render(reading)
         reading.captured?.let {
             store.addMeasurement(it)
@@ -207,15 +220,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(r: Reading) {
         val u = displayUnit.unit
-        b.unit.text = u.symbol
+        b.unit.setTextIfChanged(u.symbol)
 
         val shown = r.grams
         if (shown == null) {
-            b.value.text = if (engine.calibration.isCalibrated) "0,0" else getString(R.string.value_placeholder)
+            b.value.setTextIfChanged(if (engine.calibration.isCalibrated) "0,0" else getString(R.string.value_placeholder))
             b.value.setTextColor(colMuted)
-            b.alt.text = ""
+            b.alt.setTextIfChanged("")
         } else {
-            b.value.text = Fmt.pl(u.fromGrams(shown), displayUnit.decimals)
+            b.value.setTextIfChanged(Fmt.pl(u.fromGrams(shown), displayUnit.decimals))
             if (shown > 0) lastMass = shown
             val dim = abs(shown) < ScaleEngine.DIVISION_G / 2
             b.value.setTextColor(
@@ -227,13 +240,13 @@ class MainActivity : AppCompatActivity() {
                 }
             )
             val alt = if (u == MassUnit.G) MassUnit.CT else MassUnit.G
-            b.alt.text = if (shown > 0) {
+            b.alt.setTextIfChanged(if (shown > 0) {
                 val base = "${Fmt.pl(alt.fromGrams(shown), 2)} ${alt.symbol}"
                 if (r.tare > 0) "$base  ·  netto" else base
-            } else ""
+            } else "")
         }
 
-        b.sub.text = when {
+        b.sub.setTextIfChanged(when {
             r.state == ScaleState.OVERLOAD -> getString(R.string.state_overload)
             r.state == ScaleState.UNCALIBRATED -> getString(R.string.state_uncalibrated)
             r.beyondRange && r.contacts > 0 -> getString(R.string.state_beyond)
@@ -241,7 +254,7 @@ class MainActivity : AppCompatActivity() {
             r.state == ScaleState.SETTLING -> getString(R.string.state_settling)
             r.state == ScaleState.MEASURING -> getString(R.string.state_measuring)
             else -> getString(R.string.state_idle)
-        }
+        })
         b.sub.setTextColor(
             when (r.state) {
                 ScaleState.OVERLOAD -> colBad
@@ -265,15 +278,15 @@ class MainActivity : AppCompatActivity() {
         b.pan.invalidate()
         b.meter.value = norm
         b.meter.peak = r.peak.coerceIn(0.0, 1.0).toFloat()
-        b.rawOut.text = String.format(Locale.US, "%.3f", r.raw)
-        b.contactsOut.text = if (r.contacts == 1) "1 punkt styku" else "${r.contacts} punktów styku"
-        b.stateOut.text = when {
+        b.rawOut.setTextIfChanged(String.format(Locale.US, "%.3f", r.raw))
+        b.contactsOut.setTextIfChanged(if (r.contacts == 1) "1 punkt styku" else "${r.contacts} punktów styku")
+        b.stateOut.setTextIfChanged(when {
             r.state == ScaleState.OVERLOAD -> "przeciążenie"
             r.state == ScaleState.HOLD -> "hold"
             r.state == ScaleState.SETTLING -> "stabilny"
             r.contacts > 0 -> "ruch"
             else -> getString(R.string.division)
-        }
+        })
         if (r.tare > 0) paintCalibrationStamp()
         updateSensorBadge()
     }
@@ -287,19 +300,19 @@ class MainActivity : AppCompatActivity() {
                 Triple(getString(R.string.sensor_approx), getString(R.string.mode_area), colWarn)
             else -> Triple(getString(R.string.sensor_detecting), getString(R.string.mode_unknown), colMuted)
         }
-        b.badge.text = text
+        b.badge.setTextIfChanged(text)
         b.badge.setTextColor(tint)
-        b.modeStamp.text = mode
+        b.modeStamp.setTextIfChanged(mode)
     }
 
     private fun paintCalibrationStamp() {
         val cal = engine.calibration
-        b.calStamp.text = when {
+        b.calStamp.setTextIfChanged(when {
             engine.tare > 0 -> "netto · tara ${Fmt.pl(engine.tare, 1)} g"
             !cal.isCalibrated -> getString(R.string.cal_none)
             cal.referenceCount == 1 -> "1 wzorzec"
             else -> "${cal.referenceCount} wzorce"
-        }
+        })
     }
 
     // ── budulec arkuszy ─────────────────────────────────────────────────────

@@ -15,6 +15,9 @@ data class Reading(
     val contacts: Int,
     val tare: Double,
     val beyondRange: Boolean,
+    /** Odchylenie standardowe bieżącego kontaktu — miara spokoju odczytu. */
+    val stability: Double,
+    val samples: Int,
     /** Masa dopisana do dziennika w tym kroku — niepusta tylko w chwili zatrzymania odczytu. */
     val captured: Double?
 )
@@ -112,6 +115,8 @@ class ScaleEngine(var calibration: Calibration) {
             contacts = contacts,
             tare = tare,
             beyondRange = calibration.beyondRange(raw),
+            stability = filter.standardDeviation,
+            samples = filter.historyCount,
             captured = captured
         )
     }

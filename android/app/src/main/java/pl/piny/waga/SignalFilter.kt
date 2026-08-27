@@ -38,6 +38,8 @@ class SignalFilter(
             return sqrt(history.sumOf { (it - mean) * (it - mean) } / history.size)
         }
 
+    val historyCount: Int get() = history.size
+
     /** Wołane przy zmianie kontaktu: stabilność liczymy tylko z bieżącego dotknięcia. */
     fun resetHistory() = history.clear()
 
