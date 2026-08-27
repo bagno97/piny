@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 39 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 46 testów, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.0.apk` (1,7 MB, podpisany,
+Gotowy plik do zainstalowania leży w `dist/waga-1.1.apk` (1,7 MB, podpisany,
 minSdk 24). Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -63,8 +63,23 @@ bez emulatora.
 | `ScaleEngine.kt` | maszyna stanu: tara, zatrzymanie odczytu, przeciążenie |
 | `PressureProbe.kt` | rozstrzyga, czy ekran naprawdę mierzy siłę |
 | `PanView.kt` | odczyt `MotionEvent`, wybór kanału, rysowanie pola pomiarowego |
-| `Store.kt` | kalibracja i dziennik w `SharedPreferences` |
+| `Store.kt` | profile kalibracji (osobno palec i rysik) oraz dziennik |
 | `MainActivity.kt` | pętla 60 Hz, interfejs, arkusze |
+
+## Kalibracja jest nieobowiązkowa
+
+Waga działa od pierwszego dotknięcia. Bez własnych wzorców liczy z **krzywej
+wstępnej** — prostej od zera do pełnego wychylenia czujnika, przyjmującej
+500 g dla maksymalnego nacisku (mocny docisk palcem to 3–5 N, a zakres rysika
+S Pen jest rzędu 500 gf). Taki odczyt jest oznaczony na ekranie jako
+„szacunkowo · bez wzorca" i nie udaje pomiaru.
+
+Zmierzenie jednego przedmiotu o znanej masie zamienia szacunek w pomiar,
+a trzy wzorce układają krzywą. Profile są **osobne dla palca i dla rysika**,
+bo to zupełnie inne charakterystyki nacisku — aplikacja przełącza je sama,
+rozpoznając narzędzie po `MotionEvent.getToolType()`. Rysik jest tu lepszym
+źródłem danych: S Pen podaje nacisk w 4096 poziomach, podczas gdy zwykły
+ekran pojemnościowy często nie różnicuje go wcale.
 
 ## Jak liczona jest masa
 

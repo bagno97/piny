@@ -101,7 +101,7 @@
                     android:id="@+id/value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/value_placeholder"
+                    android:text="@string/value_initial"
                     android:textColor="@color/ink"
                     android:textSize="72sp"
                     android:fontFamily="monospace"

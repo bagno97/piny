@@ -78,6 +78,31 @@ class CalibrationTest {
     }
 
     @Test
+    fun `krzywa wstepna jest liniowa i oznaczona`() {
+        val cal = Calibration.automatic()
+        assertTrue(cal.auto)
+        assertTrue(cal.isCalibrated)
+        assertEquals(0.0, cal.massFor(0.0)!!, 1e-9)
+        assertEquals(Calibration.DEFAULT_FULL_SCALE_G / 4, cal.massFor(0.25)!!, 1e-6)
+        assertEquals(Calibration.DEFAULT_FULL_SCALE_G, cal.massFor(1.0)!!, 1e-6)
+    }
+
+    @Test
+    fun `skasowanie wzorcow wraca do krzywej wstepnej a nie do martwej wagi`() {
+        val cal = calibrated(5.0, 10.0).cleared()
+        assertTrue(cal.auto)
+        assertNotNull("po skasowaniu waga wciąż musi coś pokazywać", cal.massFor(0.5))
+    }
+
+    @Test
+    fun `usuniecie ostatniego wzorca wraca do krzywej wstepnej`() {
+        val p = CalPoint(0.4, 5.0)
+        val cal = Calibration(0.0, listOf(p)).withoutPoint(p)
+        assertTrue(cal.auto)
+        assertNotNull(cal.massFor(0.5))
+    }
+
+    @Test
     fun `usuniecie wzorca nie rusza pozostalych`() {
         val p = CalPoint(0.4, 5.0)
         val cal = Calibration(0.0, listOf(p, CalPoint(0.7, 12.0)))

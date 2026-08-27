@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         store = Store(this)
-        engine = ScaleEngine(store.loadCalibration())
+        engine = ScaleEngine(store.loadCalibration(Tool.FINGER))
         displayUnit = store.displayUnit
 
         resolveColors()
@@ -91,8 +91,10 @@ class MainActivity : AppCompatActivity() {
 
         b.badge.setOnClickListener { showDiagnostics() }
 
-        if (store.calibratedAt == 0L && store.history.isEmpty()) {
-            ui.postDelayed({ if (!isFinishing) showDiagnostics() }, 700)
+        // przełączenie palec/rysik wczytuje profil tego narzędzia w locie
+        b.pan.onToolChanged = { tool ->
+            engine.calibration = store.loadCalibration(tool)
+            paintCalibrationStamp()
         }
     }
 
@@ -186,13 +188,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun doTare() {
         buzz(12)
-        if (!engine.calibration.isCalibrated) {
-            engine.zeroSignal()
-            store.saveCalibration(engine.calibration)
-            paintCalibrationStamp()
-            toast("Punkt zerowy sygnału ustawiony")
-            return
-        }
         val taken = engine.tareNow()
         if (taken > 0) toast("Tara ${Fmt.pl(taken, 1)} g — waga liczy netto")
         else { engine.clearTare(); toast("Wyzerowano") }
@@ -224,7 +219,7 @@ class MainActivity : AppCompatActivity() {
 
         val shown = r.grams
         if (shown == null) {
-            b.value.setTextIfChanged(if (engine.calibration.isCalibrated) "0,0" else getString(R.string.value_placeholder))
+            b.value.setTextIfChanged("0,0")
             b.value.setTextColor(colMuted)
             b.alt.setTextIfChanged("")
         } else {
@@ -248,11 +243,11 @@ class MainActivity : AppCompatActivity() {
 
         b.sub.setTextIfChanged(when {
             r.state == ScaleState.OVERLOAD -> getString(R.string.state_overload)
-            r.state == ScaleState.UNCALIBRATED -> getString(R.string.state_uncalibrated)
             r.beyondRange && r.contacts > 0 -> getString(R.string.state_beyond)
             r.state == ScaleState.HOLD -> getString(R.string.state_hold)
             r.state == ScaleState.SETTLING -> getString(R.string.state_settling)
-            r.state == ScaleState.MEASURING -> getString(R.string.state_measuring)
+            r.state == ScaleState.MEASURING ->
+                if (r.approximate) getString(R.string.state_estimate) else getString(R.string.state_measuring)
             else -> getString(R.string.state_idle)
         })
         b.sub.setTextColor(
@@ -309,9 +304,9 @@ class MainActivity : AppCompatActivity() {
         val cal = engine.calibration
         b.calStamp.setTextIfChanged(when {
             engine.tare > 0 -> "netto · tara ${Fmt.pl(engine.tare, 1)} g"
-            !cal.isCalibrated -> getString(R.string.cal_none)
-            cal.referenceCount == 1 -> "1 wzorzec"
-            else -> "${cal.referenceCount} wzorce"
+            cal.auto -> "${b.pan.tool.label} · wstępna"
+            cal.referenceCount == 1 -> "${b.pan.tool.label} · 1 wzorzec"
+            else -> "${b.pan.tool.label} · ${cal.referenceCount} wzorce"
         })
     }
 
@@ -423,19 +418,27 @@ class MainActivity : AppCompatActivity() {
             content.removeAllViews()
             val cal = engine.calibration
 
-            content.eyebrow("Procedura")
-            content.title("Kalibracja wzorcami")
+            content.eyebrow(if (cal.auto) "Nieobowiązkowe" else "Profil: ${b.pan.tool.label}")
+            content.title(if (cal.auto) "Ustaw dokładność" else "Kalibracja wzorcami")
             content.body(
-                "Ekran zwraca bezwymiarowy nacisk od 0 do 1, a jego odpowiedź nie jest liniowa. " +
-                "Jeden wzorzec daje prostą, trzy i więcej — krzywą, która trzyma dokładność w całym zakresie."
+                if (cal.auto)
+                    "Waga już działa — pokazuje szacunek oparty na typowym zakresie nacisku ekranu. " +
+                    "Żeby zamienić szacunek na pomiar, zmierz jeden przedmiot o znanej masie. " +
+                    "Trzy wzorce i więcej układają krzywą, która trzyma dokładność w całym zakresie.\n\n" +
+                    "Profil zapisuje się osobno dla palca i dla rysika, bo to zupełnie inne naciski."
+                else
+                    "Ekran zwraca bezwymiarowy nacisk od 0 do 1, a jego odpowiedź nie jest liniowa. " +
+                    "Jeden wzorzec daje prostą, trzy i więcej — krzywą, która trzyma dokładność w całym " +
+                    "zakresie. Ten profil dotyczy narzędzia: ${b.pan.tool.label}."
             )
 
-            content.sectionLabel("01 · Zero")
-            content.body("Nic nie dotyka ekranu, telefon leży nieruchomo.")
+            content.sectionLabel("01 · Zero (nieobowiązkowe)")
+            content.body("Nic nie dotyka ekranu, telefon leży nieruchomo. Przydatne tylko wtedy, " +
+                "gdy waga pokazuje coś przy pustym ekranie.")
             content.buttonRow(button("Ustaw zero") {
                 if (b.pan.sample().contacts > 0) { toast("Zdejmij wszystko z ekranu"); return@button }
                 engine.calibration = engine.calibration.withZero(engine.signal)
-                store.saveCalibration(engine.calibration)
+                store.saveCalibration(b.pan.tool, engine.calibration)
                 paintCalibrationStamp(); refresh(); toast("Zero ustawione")
             })
 
@@ -456,7 +459,7 @@ class MainActivity : AppCompatActivity() {
             content.sectionLabel("03 · Zapisane wzorce")
             val refs = cal.curve.drop(1)
             if (refs.isEmpty()) {
-                content.body("Brak wzorców — waga nie poda jeszcze masy.")
+                content.body("Brak własnych wzorców — waga liczy z krzywej wstępnej.")
             } else {
                 refs.forEach { point ->
                     val row = LinearLayout(this).apply {
@@ -482,7 +485,7 @@ class MainActivity : AppCompatActivity() {
                         textSize = 15f; setTextColor(colMuted); isClickable = true
                         setOnClickListener {
                             engine.calibration = engine.calibration.withoutPoint(point)
-                            store.saveCalibration(engine.calibration)
+                            store.saveCalibration(b.pan.tool, engine.calibration)
                             paintCalibrationStamp(); refresh(); toast("Punkt usunięty")
                         }
                     })
@@ -493,18 +496,19 @@ class MainActivity : AppCompatActivity() {
             content.sectionLabel("Stan przyrządu")
             content.mono(
                 "zero    ${String.format(Locale.US, "%.4f", cal.zero)}\n" +
-                "wzorce  ${cal.referenceCount} (${if (cal.isCurved) "krzywa" else "prosta"})\n" +
+                "narzędzie ${b.pan.tool.label}\n" +
+                "wzorce  ${if (cal.auto) "wstępna" else "${cal.referenceCount} (${if (cal.isCurved) "krzywa" else "prosta"})"}\n" +
                 "zakres  0 – ${Fmt.pl(cal.maxMass, 1)} g\n" +
                 "data    ${if (store.calibratedAt > 0)
                     SimpleDateFormat("dd.MM.yyyy", Locale("pl")).format(Date(store.calibratedAt)) else "—"}"
             )
 
             content.buttonRow(
-                button("Skasuj wszystko") {
+                button("Wróć do wstępnej") {
                     engine.calibration = engine.calibration.cleared()
-                    store.saveCalibration(engine.calibration)
+                    store.saveCalibration(b.pan.tool, engine.calibration)
                     store.calibratedAt = 0L
-                    paintCalibrationStamp(); refresh(); toast("Kalibracja skasowana")
+                    paintCalibrationStamp(); refresh(); toast("Wrócono do kalibracji wstępnej")
                 },
                 button("Zamknij") { dialog.dismiss() }
             )
@@ -531,7 +535,7 @@ class MainActivity : AppCompatActivity() {
                 val raw = samples.sorted()[samples.size / 2]
                 if (raw - engine.calibration.zero <= 0.01) { toast("Czujnik nie zarejestrował nacisku"); return }
                 engine.calibration = engine.calibration.withPoint(CalPoint(raw, mass))
-                store.saveCalibration(engine.calibration)
+                store.saveCalibration(b.pan.tool, engine.calibration)
                 paintCalibrationStamp()
                 toast("Zapisano wzorzec ${Fmt.pl(mass, 2)} g")
                 done()

@@ -26,11 +26,29 @@ class ScaleEngineTest {
     }
 
     @Test
-    fun `bez kalibracji nie zmyśla masy`() {
+    fun `pusta krzywa nadal nie zmysla masy`() {
         val e = ScaleEngine(Calibration())
         val (r, _) = e.hold(0.5, 500, 0)
         assertEquals(ScaleState.UNCALIBRATED, r.state)
         assertNull(r.grams)
+    }
+
+    @Test
+    fun `kalibracja wstepna daje odczyt od pierwszego dotkniecia`() {
+        val e = ScaleEngine(Calibration.automatic())
+        val (r, _) = e.hold(0.5, 600, 0)
+        assertNotNull("waga nie może blokować się do czasu kalibracji", r.grams)
+        assertTrue("odczyt musi być oznaczony jako szacunek", r.approximate)
+        assertEquals(Calibration.DEFAULT_FULL_SCALE_G / 2, r.grams!!, 15.0)
+    }
+
+    @Test
+    fun `wlasny wzorzec zastepuje krzywa wstepna`() {
+        val e = ScaleEngine(Calibration.automatic())
+        e.calibration = e.calibration.withPoint(CalPoint(0.5, 20.0))
+        val (r, _) = e.hold(0.5, 600, 0)
+        assertFalse("po wzorcu to już pomiar, nie szacunek", r.approximate)
+        assertEquals(20.0, r.grams!!, 0.5)
     }
 
     @Test

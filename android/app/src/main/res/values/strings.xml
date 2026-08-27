@@ -15,6 +15,7 @@
 
     <string name="cal_none">bez kalibracji</string>
     <string name="value_placeholder">––,–</string>
+    <string name="value_initial">0,0</string>
     <string name="unit_g">g</string>
 
     <string name="state_idle">połóż lub naciśnij</string>
@@ -22,7 +23,7 @@
     <string name="state_settling">stabilizacja…</string>
     <string name="state_hold">◼ zatrzymano</string>
     <string name="state_overload">przeciążenie</string>
-    <string name="state_uncalibrated">wymaga kalibracji</string>
+    <string name="state_estimate">szacunkowo · bez wzorca</string>
     <string name="state_beyond">poza zakresem wzorców</string>
 
     <string name="signal">sygnał czujnika</string>

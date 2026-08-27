@@ -33,9 +33,12 @@ class MainActivityTest {
 
     private fun rawFor(mass: Double) = 1 - exp(-mass / 10.0)
 
-    private fun touch(pan: PanView, action: Int, pressure: Float, size: Float = 12f) {
+    private fun touch(
+        pan: PanView, action: Int, pressure: Float, size: Float = 12f,
+        toolType: Int = MotionEvent.TOOL_TYPE_FINGER
+    ) {
         val props = arrayOf(MotionEvent.PointerProperties().apply {
-            id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER
+            id = 0; this.toolType = toolType
         })
         val coords = arrayOf(MotionEvent.PointerCoords().apply {
             x = 200f; y = 400f
@@ -77,23 +80,67 @@ class MainActivityTest {
         assertNotNull(a.findViewById<MeterView>(R.id.meter))
         assertEquals("pięć narzędzi na dole", 5,
             a.findViewById<android.widget.LinearLayout>(R.id.tools).childCount)
-        assertEquals("––,–", a.findViewById<TextView>(R.id.value).text.toString())
+        idle(100)
+        assertEquals("waga startuje gotowa do pracy", "0,0",
+            a.findViewById<TextView>(R.id.value).text.toString())
     }
 
     @Test
-    fun `bez kalibracji nie pokazuje zadnej masy`() {
+    fun `bez zadnej kalibracji waga i tak wazy`() {
+        val store = Store(org.robolectric.RuntimeEnvironment.getApplication())
+        store.saveCalibration(Tool.FINGER, Calibration.automatic())
         val a = launch()
         val pan = a.findViewById<PanView>(R.id.pan)
-        touch(pan, MotionEvent.ACTION_DOWN, 0.4f)
-        idle(1500)
-        assertEquals("––,–", a.findViewById<TextView>(R.id.value).text.toString())
-        assertTrue(a.findViewById<TextView>(R.id.sub).text.toString().contains("kalibracj"))
+        touch(pan, MotionEvent.ACTION_DOWN, 0.10f)
+        listOf(0.18f, 0.26f, 0.34f, 0.42f, 0.50f, 0.58f)
+            .forEach { touch(pan, MotionEvent.ACTION_MOVE, it); idle(50) }
+        idle(500)
+
+        val shown = a.findViewById<TextView>(R.id.value).text.toString().replace(',', '.').toDouble()
+        assertTrue("waga musi pokazać liczbę od razu, było: $shown", shown > 0.0)
+        assertTrue("odczyt ma być oznaczony jako szacunek",
+            a.lastReading?.approximate == true)
+        assertTrue("plakietka mówi o kalibracji wstępnej",
+            a.findViewById<TextView>(R.id.calStamp).text.toString().contains("wstępna"))
+    }
+
+    @Test
+    fun `rysik ma wlasny profil kalibracji`() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val store = Store(app)
+        store.saveCalibration(Tool.FINGER, Calibration(0.0, listOf(CalPoint(0.5, 8.0))))
+        store.saveCalibration(Tool.STYLUS, Calibration(0.0, listOf(CalPoint(0.5, 40.0))))
+
+        val a = launch()
+        val pan = a.findViewById<PanView>(R.id.pan)
+
+        touch(pan, MotionEvent.ACTION_DOWN, 0.5f, toolType = MotionEvent.TOOL_TYPE_FINGER)
+        idle(300)
+        assertEquals(Tool.FINGER, pan.tool)
+        assertEquals("profil palca", 8.0, a.engine.calibration.massFor(0.5)!!, 0.01)
+
+        touch(pan, MotionEvent.ACTION_UP, 0.5f)
+        touch(pan, MotionEvent.ACTION_DOWN, 0.5f, toolType = MotionEvent.TOOL_TYPE_STYLUS)
+        idle(300)
+        assertEquals(Tool.STYLUS, pan.tool)
+        assertEquals("profil rysika", 40.0, a.engine.calibration.massFor(0.5)!!, 0.01)
+        assertTrue(a.findViewById<TextView>(R.id.calStamp).text.toString().contains("rysik"))
+    }
+
+    @Test
+    fun `profile palca i rysika sa niezalezne`() {
+        val store = Store(org.robolectric.RuntimeEnvironment.getApplication())
+        store.saveCalibration(Tool.FINGER, Calibration(0.0, listOf(CalPoint(0.4, 5.0))))
+        assertTrue("rysik nie dziedziczy kalibracji palca",
+            store.loadCalibration(Tool.STYLUS).auto)
+        assertFalse(store.loadCalibration(Tool.FINGER).auto)
     }
 
     @Test
     fun `skalibrowana waga pokazuje mase i zapisuje pomiar`() {
         val store = Store(org.robolectric.RuntimeEnvironment.getApplication())
         store.saveCalibration(
+            Tool.FINGER,
             Calibration(0.0, listOf(2.0, 5.0, 10.0, 20.0).map { CalPoint(rawFor(it), it) })
         )
         store.clearHistory()

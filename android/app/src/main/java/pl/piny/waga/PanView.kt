@@ -14,6 +14,12 @@ import kotlin.math.min
 /** Który kanał ekranu niesie informację o nacisku. */
 enum class Channel { AUTO, PRESSURE, AREA }
 
+/** Czym dotykamy ekranu — rysik i palec mają zupełnie inne charakterystyki nacisku. */
+enum class Tool(val label: String, val key: String) {
+    FINGER("palec", "finger"),
+    STYLUS("rysik", "stylus");
+}
+
 data class Sample(
     val pressureSum: Double,
     val areaSumMm2: Double,
@@ -41,6 +47,14 @@ class PanView @JvmOverloads constructor(
 
     private val pressures = HashMap<Int, Double>()
     private val areas = HashMap<Int, Double>()
+    private val tools = HashMap<Int, Tool>()
+
+    /** Narzędzie ostatniego kontaktu; rysik ma pierwszeństwo, gdy leży też dłoń. */
+    var tool: Tool = Tool.FINGER
+        private set
+
+    /** Wołane, gdy zmienia się narzędzie — waga przełącza wtedy profil kalibracji. */
+    var onToolChanged: ((Tool) -> Unit)? = null
 
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f }
     private val crossPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f }
@@ -104,18 +118,34 @@ class PanView @JvmOverloads constructor(
                     probe.note(p)
                     pressures[id] = p
                     areas[id] = contactAreaMm2(event, i)
+                    tools[id] = toolOf(event.getToolType(i))
                 }
+                updateTool()
                 if (event.actionMasked == MotionEvent.ACTION_DOWN) parent?.requestDisallowInterceptTouchEvent(true)
             }
             MotionEvent.ACTION_POINTER_UP -> {
                 val id = event.getPointerId(event.actionIndex)
-                pressures.remove(id); areas.remove(id)
+                pressures.remove(id); areas.remove(id); tools.remove(id)
+                updateTool()
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                pressures.clear(); areas.clear()
+                pressures.clear(); areas.clear(); tools.clear()
             }
         }
         return true
+    }
+
+    private fun toolOf(toolType: Int): Tool = when (toolType) {
+        MotionEvent.TOOL_TYPE_STYLUS, MotionEvent.TOOL_TYPE_ERASER -> Tool.STYLUS
+        else -> Tool.FINGER
+    }
+
+    private fun updateTool() {
+        val next = if (tools.values.any { it == Tool.STYLUS }) Tool.STYLUS else Tool.FINGER
+        if (next != tool) {
+            tool = next
+            onToolChanged?.invoke(next)
+        }
     }
 
     /** Elipsa styku w mm²; gdy sterownik jej nie podaje, sięga po znormalizowany rozmiar. */

@@ -15,6 +15,8 @@ data class Reading(
     val contacts: Int,
     val tare: Double,
     val beyondRange: Boolean,
+    /** true, gdy odczyt opiera się na krzywej wstępnej, a nie na wzorcach użytkownika. */
+    val approximate: Boolean,
     /** Odchylenie standardowe bieżącego kontaktu — miara spokoju odczytu. */
     val stability: Double,
     val samples: Int,
@@ -115,6 +117,7 @@ class ScaleEngine(var calibration: Calibration) {
             contacts = contacts,
             tare = tare,
             beyondRange = calibration.beyondRange(raw),
+            approximate = calibration.auto,
             stability = filter.standardDeviation,
             samples = filter.historyCount,
             captured = captured

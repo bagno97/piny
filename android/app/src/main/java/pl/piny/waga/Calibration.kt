@@ -11,7 +11,9 @@ data class CalPoint(val raw: Double, val grams: Double)
  */
 class Calibration(
     val zero: Double = 0.0,
-    val points: List<CalPoint> = emptyList()
+    val points: List<CalPoint> = emptyList(),
+    /** true dla krzywej wstępnej — odczyt jest wtedy szacunkiem, nie pomiarem. */
+    val auto: Boolean = false
 ) {
     companion object {
         /** Punkty bliższe niż to nadpisują się — dwa wzorce o tym samym sygnale nie niosą informacji. */
@@ -19,6 +21,18 @@ class Calibration(
 
         /** Powyżej najcięższego wzorca ufamy nachyleniu najwyżej do tej krotności jego masy. */
         const val EXTRAPOLATION_LIMIT = 1.5
+
+        /**
+         * Masa odpowiadająca pełnemu wychyleniu czujnika przy kalibracji wstępnej.
+         * Mocny docisk palcem to około 3–5 N, rysik S Pen ma zakres rzędu 500 gf —
+         * stąd ta wartość. Jest przybliżeniem: pozwala wadze pokazać sensowną liczbę
+         * od pierwszego dotknięcia, zamiast blokować się do czasu kalibracji wzorcem.
+         */
+        const val DEFAULT_FULL_SCALE_G = 500.0
+
+        /** Kalibracja wstępna: prosta od zera do pełnego wychylenia czujnika. */
+        fun automatic(fullScale: Double = DEFAULT_FULL_SCALE_G) =
+            Calibration(0.0, listOf(CalPoint(1.0, fullScale)), auto = true)
     }
 
     /** Krzywa: zawsze zaczyna się od punktu zerowego, dalej rosnące wzorce. */
@@ -106,13 +120,22 @@ class Calibration(
     /** Czy sygnał wyszedł poza zakres pokryty wzorcami — wtedy odczyt jest ekstrapolacją. */
     fun beyondRange(raw: Double): Boolean = isCalibrated && raw > curve.last().raw
 
+    /** Dodanie własnego wzorca zawsze porzuca krzywą wstępną. */
     fun withPoint(point: CalPoint): Calibration =
-        Calibration(zero, points.filter { kotlin.math.abs(it.raw - point.raw) >= MIN_GAP } + point)
+        Calibration(
+            zero,
+            if (auto) listOf(point)
+            else points.filter { kotlin.math.abs(it.raw - point.raw) >= MIN_GAP } + point,
+            auto = false
+        )
 
-    fun withoutPoint(point: CalPoint): Calibration =
-        Calibration(zero, points.filter { it != point })
+    fun withoutPoint(point: CalPoint): Calibration {
+        val rest = points.filter { it != point }
+        return if (rest.isEmpty()) automatic() else Calibration(zero, rest, auto = false)
+    }
 
-    fun withZero(newZero: Double): Calibration = Calibration(newZero, points)
+    fun withZero(newZero: Double): Calibration = Calibration(newZero, points, auto)
 
-    fun cleared(): Calibration = Calibration(0.0, emptyList())
+    /** Kasowanie wzorców wraca do krzywej wstępnej, a nie do wagi, która nic nie pokazuje. */
+    fun cleared(): Calibration = automatic()
 }

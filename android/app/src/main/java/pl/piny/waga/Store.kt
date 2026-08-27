@@ -14,9 +14,9 @@ class Store(context: Context) {
         private const val MAX_HISTORY = 50
     }
 
-    var zero: Double
-        get() = prefs.getFloat("zero", 0f).toDouble()
-        set(v) = prefs.edit().putFloat("zero", v.toFloat()).apply()
+    // Kalibracja jest osobna dla palca i dla rysika — to inne czujniki tej samej wagi.
+    private fun zeroKey(tool: Tool) = "zero_${tool.key}"
+    private fun pointsKey(tool: Tool) = "points_${tool.key}"
 
     var displayUnit: DisplayUnit
         get() = runCatching { DisplayUnit.valueOf(prefs.getString("unit", "GRAMS")!!) }
@@ -32,22 +32,16 @@ class Store(context: Context) {
         get() = prefs.getLong("calAt", 0L)
         set(v) = prefs.edit().putLong("calAt", v).apply()
 
-    var points: List<CalPoint>
-        get() {
-            val raw = prefs.getString("points", "[]") ?: "[]"
-            return runCatching {
-                val arr = JSONArray(raw)
-                (0 until arr.length()).map {
-                    val o = arr.getJSONObject(it)
-                    CalPoint(o.getDouble("raw"), o.getDouble("g"))
-                }
-            }.getOrDefault(emptyList())
-        }
-        set(v) {
-            val arr = JSONArray()
-            v.forEach { arr.put(JSONObject().put("raw", it.raw).put("g", it.grams)) }
-            prefs.edit().putString("points", arr.toString()).apply()
-        }
+    private fun readPoints(tool: Tool): List<CalPoint> {
+        val raw = prefs.getString(pointsKey(tool), "[]") ?: "[]"
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                CalPoint(o.getDouble("raw"), o.getDouble("g"))
+            }
+        }.getOrDefault(emptyList())
+    }
 
     var history: List<Measurement>
         get() {
@@ -66,12 +60,24 @@ class Store(context: Context) {
             prefs.edit().putString("history", arr.toString()).apply()
         }
 
-    fun loadCalibration() = Calibration(zero, points)
+    /**
+     * Zapisany profil narzędzia albo krzywa wstępna, gdy użytkownik nic jeszcze nie
+     * kalibrował. Waga nigdy nie startuje w stanie „nic nie pokażę".
+     */
+    fun loadCalibration(tool: Tool): Calibration {
+        val saved = readPoints(tool)
+        if (saved.isEmpty()) return Calibration.automatic()
+        return Calibration(prefs.getFloat(zeroKey(tool), 0f).toDouble(), saved, auto = false)
+    }
 
-    fun saveCalibration(cal: Calibration) {
-        zero = cal.zero
-        points = cal.points
-        calibratedAt = System.currentTimeMillis()
+    fun saveCalibration(tool: Tool, cal: Calibration) {
+        val arr = JSONArray()
+        if (!cal.auto) cal.points.forEach { arr.put(JSONObject().put("raw", it.raw).put("g", it.grams)) }
+        prefs.edit()
+            .putFloat(zeroKey(tool), cal.zero.toFloat())
+            .putString(pointsKey(tool), arr.toString())
+            .apply()
+        if (!cal.auto) calibratedAt = System.currentTimeMillis()
     }
 
     fun addMeasurement(grams: Double) {
