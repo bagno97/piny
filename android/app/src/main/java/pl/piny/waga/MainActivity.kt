@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun doTare() {
         buzz(12)
-        val taken = engine.tareNow()
+        val taken = if (b.pan.sample().contacts > 0) engine.tareNow() else 0.0
         if (taken > 0) toast("Tara ${Fmt.pl(taken, 1)} g — waga liczy netto")
         else { engine.clearTare(); toast("Wyzerowano") }
         paintCalibrationStamp()
@@ -205,11 +205,28 @@ class MainActivity : AppCompatActivity() {
             now = SystemClock.uptimeMillis()
         )
         lastReading = reading
+        autoRange(reading)
         render(reading)
         reading.captured?.let {
             store.addMeasurement(it)
             lastMass = it
             buzz(18)
+        }
+    }
+
+    /**
+     * Dostraja kalibrację wstępną do zakresu, jaki ekran naprawdę oddaje.
+     *
+     * Sterowniki nie trzymają się skali 0–1: bywa, że najmocniejszy docisk to 0,0006.
+     * Bez tego cała czułość ekranu mieściłaby się w promilu wyświetlanego zakresu
+     * i mocne przyciśnięcie pokazywałoby ułamek grama.
+     */
+    private fun autoRange(r: Reading) {
+        if (!engine.calibration.auto) return
+        val fullScale = engine.calibration.curve.last().raw
+        if (r.peak > fullScale * 1.05 && r.peak > 1e-6) {
+            engine.calibration = Calibration.automatic(r.peak)
+            store.saveObservedFullScale(b.pan.tool, r.peak)
         }
     }
 
@@ -229,7 +246,7 @@ class MainActivity : AppCompatActivity() {
             b.value.setTextColor(
                 when {
                     r.state == ScaleState.OVERLOAD -> colBad
-                    r.state == ScaleState.HOLD -> colOk
+                    r.state == ScaleState.HOLD || r.state == ScaleState.RETAINED -> colOk
                     dim -> colMuted
                     else -> colInk
                 }
@@ -245,6 +262,7 @@ class MainActivity : AppCompatActivity() {
             r.state == ScaleState.OVERLOAD -> getString(R.string.state_overload)
             r.beyondRange && r.contacts > 0 -> getString(R.string.state_beyond)
             r.state == ScaleState.HOLD -> getString(R.string.state_hold)
+            r.state == ScaleState.RETAINED -> getString(R.string.state_retained)
             r.state == ScaleState.SETTLING -> getString(R.string.state_settling)
             r.state == ScaleState.MEASURING ->
                 if (r.approximate) getString(R.string.state_estimate) else getString(R.string.state_measuring)
@@ -253,7 +271,7 @@ class MainActivity : AppCompatActivity() {
         b.sub.setTextColor(
             when (r.state) {
                 ScaleState.OVERLOAD -> colBad
-                ScaleState.HOLD -> colOk
+                ScaleState.HOLD, ScaleState.RETAINED -> colOk
                 else -> colMuted
             }
         )
@@ -262,7 +280,7 @@ class MainActivity : AppCompatActivity() {
             dp(1f),
             when {
                 r.state == ScaleState.OVERLOAD -> colBad
-                r.state == ScaleState.HOLD -> colOk
+                r.state == ScaleState.HOLD || r.state == ScaleState.RETAINED -> colOk
                 r.contacts > 0 -> colAccent
                 else -> colLine
             }
@@ -278,6 +296,7 @@ class MainActivity : AppCompatActivity() {
         b.stateOut.setTextIfChanged(when {
             r.state == ScaleState.OVERLOAD -> "przeciążenie"
             r.state == ScaleState.HOLD -> "hold"
+            r.state == ScaleState.RETAINED -> "wynik zatrzymany"
             r.state == ScaleState.SETTLING -> "stabilny"
             r.contacts > 0 -> "ruch"
             else -> getString(R.string.division)
@@ -505,6 +524,7 @@ class MainActivity : AppCompatActivity() {
 
             content.buttonRow(
                 button("Wróć do wstępnej") {
+                    store.resetObservedFullScale(b.pan.tool)
                     engine.calibration = engine.calibration.cleared()
                     store.saveCalibration(b.pan.tool, engine.calibration)
                     store.calibratedAt = 0L
@@ -726,7 +746,14 @@ class MainActivity : AppCompatActivity() {
         content.sectionLabel("Pomiar na żywo")
         val report = content.mono("Naciśnij „Test czujnika” i przez 6 s naciskaj raz mocniej, raz słabiej.")
         content.buttonRow(button("Test czujnika · 6 s", solid = true) { btn -> selfTest(btn, report) })
-        content.buttonRow(button("Zamknij") { dialog.dismiss() })
+        content.buttonRow(
+            button("Ucz zakresu od nowa") {
+                store.resetObservedFullScale(b.pan.tool)
+                if (engine.calibration.auto) engine.calibration = Calibration.automatic()
+                toast("Zakres wyzerowany — naciśnij mocno, żeby go pokazać wadze")
+            },
+            button("Zamknij") { dialog.dismiss() }
+        )
     }
 
     private fun selfTest(btn: TextView, report: TextView) {
@@ -752,7 +779,9 @@ class MainActivity : AppCompatActivity() {
                         "Trzymaj palec na polu pomiarowym przez całe 6 s."
                     return
                 }
-                val pSpan = pressures.max() - pressures.min()
+                val pMax = pressures.max()
+                val pSpan = pMax - pressures.min()
+                val pRelative = if (pMax > 0) pSpan / pMax else 0.0
                 val aSpan = if (areas.isEmpty()) 0.0 else areas.max() - areas.min()
                 val forceOk = b.pan.probe.hasForceSensor
                 val areaOk = areas.isNotEmpty() && areas.max() > 0 && aSpan / areas.max() > 0.15
@@ -771,13 +800,15 @@ class MainActivity : AppCompatActivity() {
                     else -> "Ekran nie różnicuje nacisku — pomiar ilościowy jest niemożliwy."
                 }
                 report.text = verdict + "\n\n" +
-                    "nacisk  min ${String.format(Locale.US, "%.3f", pressures.min())}" +
-                    "  max ${String.format(Locale.US, "%.3f", pressures.max())}" +
-                    "  zakres ${String.format(Locale.US, "%.3f", pSpan)}\n" +
-                    "poziomy ${b.pan.probe.levelCount}\n" +
-                    "pole    min ${String.format(Locale.US, "%.1f", areas.minOrNull() ?: 0.0)} mm²" +
-                    "  max ${String.format(Locale.US, "%.1f", areas.maxOrNull() ?: 0.0)} mm²\n" +
-                    "próbek  ${pressures.size}"
+                    "nacisk min  ${String.format(Locale.US, "%.6f", pressures.min())}\n" +
+                    "nacisk max  ${String.format(Locale.US, "%.6f", pMax)}\n" +
+                    "rozpiętość  ${String.format(Locale.US, "%.6f", pSpan)}" +
+                    "  (${String.format(Locale.US, "%.0f", pRelative * 100)}% zakresu)\n" +
+                    "poziomy     ${b.pan.probe.levelCount}\n" +
+                    "pole styku  ${String.format(Locale.US, "%.1f", areas.minOrNull() ?: 0.0)}" +
+                    " – ${String.format(Locale.US, "%.1f", areas.maxOrNull() ?: 0.0)} mm²\n" +
+                    "pełna skala ${String.format(Locale.US, "%.6f", engine.calibration.curve.last().raw)}\n" +
+                    "próbek      ${pressures.size}"
             }
         }
         ui.postDelayed(task, 100)

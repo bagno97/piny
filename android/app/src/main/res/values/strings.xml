@@ -22,6 +22,7 @@
     <string name="state_measuring">pomiar</string>
     <string name="state_settling">stabilizacja…</string>
     <string name="state_hold">◼ zatrzymano</string>
+    <string name="state_retained">◼ ostatni pomiar · tara zeruje</string>
     <string name="state_overload">przeciążenie</string>
     <string name="state_estimate">szacunkowo · bez wzorca</string>
     <string name="state_beyond">poza zakresem wzorców</string>

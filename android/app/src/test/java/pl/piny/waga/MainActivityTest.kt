@@ -208,7 +208,8 @@ class MainActivityTest {
         val a = launch()
         val pan = a.findViewById<PanView>(R.id.pan)
         touch(pan, MotionEvent.ACTION_DOWN, 0.10f)
-        listOf(0.22f, 0.35f, 0.48f, 0.61f).forEach { touch(pan, MotionEvent.ACTION_MOVE, it) }
+        listOf(0.22f, 0.35f, 0.48f, 0.61f, 0.74f, 0.86f)
+            .forEach { touch(pan, MotionEvent.ACTION_MOVE, it) }
         idle(200)
         assertTrue("zmienny nacisk = czujnik siły", pan.probe.hasForceSensor)
         assertFalse(pan.usingArea())

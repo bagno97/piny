@@ -29,6 +29,24 @@ class PressureProbeTest {
     }
 
     @Test
+    fun `maly zakres wlasny ekranu tez jest czujnikiem sily`() {
+        // sterownik oddaje 0,0002–0,0006: bezwzględny próg by to odrzucił,
+        // choć ekran rozróżnia nacisk trzykrotnie
+        val probe = PressureProbe()
+        listOf(0.0002, 0.00025, 0.00033, 0.00041, 0.00052, 0.0006).forEach { probe.note(it) }
+        assertTrue("ekran o własnej skali musi być rozpoznany", probe.hasForceSensor)
+        assertTrue(probe.relativeSpan > 0.5)
+    }
+
+    @Test
+    fun `staly nacisk w malej skali nadal nie jest czujnikiem`() {
+        val probe = PressureProbe()
+        repeat(50) { probe.note(0.0004) }
+        assertFalse(probe.hasForceSensor)
+        assertEquals(0.0, probe.relativeSpan, 1e-12)
+    }
+
+    @Test
     fun `zbior poziomow nie rosnie w nieskonczonosc`() {
         val probe = PressureProbe()
         repeat(100_000) { probe.note(0.001 + it % 997 * 0.001) }

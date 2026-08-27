@@ -66,6 +66,18 @@ class CalibrationTest {
     }
 
     @Test
+    fun `prog bliskosci skaluje sie z zakresem ekranu`() {
+        // ekran o zakresie 0,0006: wzorce odległe o 0,0002 są odrębnymi punktami,
+        // choć przy progu bezwzględnym uchodziłyby za ten sam
+        val small = Calibration(0.0, listOf(
+            CalPoint(0.0002, 2.0), CalPoint(0.0004, 5.0), CalPoint(0.0006, 9.0)
+        ))
+        assertEquals(3, small.referenceCount)
+        assertTrue(small.isCurved)
+        assertEquals(5.0, small.massFor(0.0004)!!, 1e-6)
+    }
+
+    @Test
     fun `wzorce niepoprawne sa odrzucane`() {
         val cal = Calibration(0.1, listOf(
             CalPoint(0.05, 5.0),               // poniżej zera
@@ -85,6 +97,19 @@ class CalibrationTest {
         assertEquals(0.0, cal.massFor(0.0)!!, 1e-9)
         assertEquals(Calibration.DEFAULT_FULL_SCALE_G / 4, cal.massFor(0.25)!!, 1e-6)
         assertEquals(Calibration.DEFAULT_FULL_SCALE_G, cal.massFor(1.0)!!, 1e-6)
+    }
+
+    @Test
+    fun `krzywa wstepna korzysta z calego zakresu ekranu`() {
+        // ekran oddaje najwyżej 0,0006 — pełne wychylenie to właśnie tyle,
+        // a nie umowna jedynka
+        val cal = Calibration.automatic(signalFullScale = 0.0006)
+        assertEquals(Calibration.DEFAULT_FULL_SCALE_G, cal.massFor(0.0006)!!, 1e-6)
+        assertEquals(Calibration.DEFAULT_FULL_SCALE_G / 2, cal.massFor(0.0003)!!, 1e-6)
+
+        // dla porównania: przy założeniu skali 0–1 ten sam docisk to ułamek grama
+        val naive = Calibration.automatic(signalFullScale = 1.0)
+        assertTrue("stare założenie gubiło czułość", naive.massFor(0.0006)!! < 1.0)
     }
 
     @Test

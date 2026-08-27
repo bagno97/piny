@@ -73,6 +73,20 @@ class PanView @JvmOverloads constructor(
     private fun pxToMmX(px: Float) = px / xdpi * 25.4
     private fun pxToMmY(px: Float) = px / ydpi * 25.4
 
+    /**
+     * Zakres deklarowany przez sterownik, wyznaczany raz. Sterowniki bywają
+     * niezgodne ze skalą 0–1 — jeśli deklarują własną, sprowadzamy do niej odczyty.
+     */
+    private val declaredRange: InputDevice.MotionRange? by lazy { declaredPressureRange() }
+
+    private fun normalize(raw: Double): Double {
+        val r = declaredRange ?: return raw
+        val span = (r.max - r.min).toDouble()
+        // skala 0–1 albo bezsensowna deklaracja — zostawiamy wartość surową
+        if (span <= 0.0 || (r.min == 0f && r.max == 1f)) return raw
+        return ((raw - r.min) / span).coerceIn(0.0, 1.0)
+    }
+
     /** Zakres osi nacisku zadeklarowany przez sterownik ekranu — null gdy go nie podaje. */
     fun declaredPressureRange(): InputDevice.MotionRange? {
         for (id in InputDevice.getDeviceIds()) {
@@ -109,12 +123,12 @@ class PanView @JvmOverloads constructor(
                 // próbki historyczne z tej samej paczki — więcej danych dla filtru
                 for (h in 0 until event.historySize) {
                     for (i in 0 until event.pointerCount) {
-                        probe.note(event.getHistoricalPressure(i, h).toDouble())
+                        probe.note(normalize(event.getHistoricalPressure(i, h).toDouble()))
                     }
                 }
                 for (i in 0 until event.pointerCount) {
                     val id = event.getPointerId(i)
-                    val p = event.getPressure(i).toDouble()
+                    val p = normalize(event.getPressure(i).toDouble())
                     probe.note(p)
                     pressures[id] = p
                     areas[id] = contactAreaMm2(event, i)

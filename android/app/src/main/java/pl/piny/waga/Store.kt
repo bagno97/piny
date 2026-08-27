@@ -17,6 +17,22 @@ class Store(context: Context) {
     // Kalibracja jest osobna dla palca i dla rysika — to inne czujniki tej samej wagi.
     private fun zeroKey(tool: Tool) = "zero_${tool.key}"
     private fun pointsKey(tool: Tool) = "points_${tool.key}"
+    private fun rangeKey(tool: Tool) = "range_${tool.key}"
+
+    /**
+     * Największy sygnał, jaki ekran oddał dla tego narzędzia. Na nim opiera się
+     * kalibracja wstępna, żeby korzystać z całej czułości, a nie z jej promila.
+     */
+    fun observedFullScale(tool: Tool): Double =
+        prefs.getFloat(rangeKey(tool), Calibration.INITIAL_FULL_SCALE_SIGNAL.toFloat()).toDouble()
+
+    fun saveObservedFullScale(tool: Tool, signal: Double) {
+        prefs.edit().putFloat(rangeKey(tool), signal.toFloat()).apply()
+    }
+
+    fun resetObservedFullScale(tool: Tool) {
+        prefs.edit().remove(rangeKey(tool)).apply()
+    }
 
     var displayUnit: DisplayUnit
         get() = runCatching { DisplayUnit.valueOf(prefs.getString("unit", "GRAMS")!!) }
@@ -66,7 +82,7 @@ class Store(context: Context) {
      */
     fun loadCalibration(tool: Tool): Calibration {
         val saved = readPoints(tool)
-        if (saved.isEmpty()) return Calibration.automatic()
+        if (saved.isEmpty()) return Calibration.automatic(observedFullScale(tool))
         return Calibration(prefs.getFloat(zeroKey(tool), 0f).toDouble(), saved, auto = false)
     }
 

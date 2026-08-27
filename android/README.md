@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 46 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 52 testy, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.1.apk` (1,7 MB, podpisany,
+Gotowy plik do zainstalowania leży w `dist/waga-1.2.apk` (1,7 MB, podpisany,
 minSdk 24). Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -65,6 +65,37 @@ bez emulatora.
 | `PanView.kt` | odczyt `MotionEvent`, wybór kanału, rysowanie pola pomiarowego |
 | `Store.kt` | profile kalibracji (osobno palec i rysik) oraz dziennik |
 | `MainActivity.kt` | pętla 60 Hz, interfejs, arkusze |
+
+## Skala sterownika nie jest znana z góry
+
+Dokumentacja Androida opisuje `MotionEvent.getPressure()` jako wartość w okolicy
+1,0 dla zwykłego dotknięcia, ale sterowniki trzymają się tego luźno: spotykane
+są ekrany, na których mocny docisk to 0,0006, a lekki 0,0002. Taki ekran
+**rozróżnia nacisk trzykrotnie**, więc nadaje się do ważenia — pod warunkiem, że
+aplikacja nie zakłada z góry skali 0–1.
+
+Dlatego wszystkie progi w kodzie są względne:
+
+- rozpoznanie czujnika porównuje rozpiętość do maksimum (`relativeSpan`), a nie
+  do stałej; przy progu bezwzględnym ekran o własnej skali uchodziłby za
+  pozbawiony czujnika
+- kalibracja wstępna skaluje się do **największego sygnału, jaki ekran realnie
+  oddał** (`Store.observedFullScale`), a nie do umownej jedynki
+- minimalny odstęp między wzorcami to 1 % zakresu krzywej, nie stała liczba —
+  inaczej na ekranie o małej skali wszystkie wzorce byłyby „tym samym punktem"
+- odczyty są dodatkowo sprowadzane do zakresu deklarowanego przez sterownik
+  (`InputDevice.getMotionRange(AXIS_PRESSURE)`), gdy ten deklaruje własną skalę
+
+Zakres uczy się sam: mocniejszy docisk niż dotąd widziany rozciąga skalę i
+zostaje zapamiętany dla danego narzędzia. Diagnostyka pokazuje wszystkie te
+liczby, a przycisk „Ucz zakresu od nowa" kasuje naukę.
+
+## Wynik zostaje po zdjęciu palca
+
+Ekran pojemnościowy przestaje cokolwiek widzieć w chwili, gdy palec odchodzi —
+bez zatrzymania wskazania odczyt spadałby do zera dokładnie wtedy, gdy chce się
+go odczytać. Ostatni ustabilizowany pomiar zostaje więc na wyświetlaczu ze stanem
+„ostatni pomiar", dopóki nie zacznie się nowy nacisk albo nie naciśnie się Tary.
 
 ## Kalibracja jest nieobowiązkowa
 

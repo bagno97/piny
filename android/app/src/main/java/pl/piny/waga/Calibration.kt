@@ -16,8 +16,13 @@ class Calibration(
     val auto: Boolean = false
 ) {
     companion object {
-        /** Punkty bliższe niż to nadpisują się — dwa wzorce o tym samym sygnale nie niosą informacji. */
-        const val MIN_GAP = 0.004
+        /**
+         * Dwa wzorce leżące bliżej niż 1 % zakresu krzywej to w praktyce ten sam punkt.
+         * Próg jest WZGLĘDNY: ekran oddający najwyżej 0,0006 miałby przy progu
+         * bezwzględnym wszystkie wzorce „identyczne" i krzywa nigdy by nie powstała.
+         */
+        const val MIN_GAP_FRACTION = 0.01
+        const val MIN_GAP_FLOOR = 1e-7
 
         /** Powyżej najcięższego wzorca ufamy nachyleniu najwyżej do tej krotności jego masy. */
         const val EXTRAPOLATION_LIMIT = 1.5
@@ -30,9 +35,25 @@ class Calibration(
          */
         const val DEFAULT_FULL_SCALE_G = 500.0
 
-        /** Kalibracja wstępna: prosta od zera do pełnego wychylenia czujnika. */
-        fun automatic(fullScale: Double = DEFAULT_FULL_SCALE_G) =
-            Calibration(0.0, listOf(CalPoint(1.0, fullScale)), auto = true)
+        /** Sygnał, przy którym zaczynamy — dopóki ekran nie pokaże, ile naprawdę daje. */
+        const val INITIAL_FULL_SCALE_SIGNAL = 1.0
+
+        /**
+         * Kalibracja wstępna: prosta od zera do [signalFullScale].
+         *
+         * [signalFullScale] to największy sygnał, jaki ekran realnie oddał. Sterowniki
+         * nie trzymają się skali 0–1 — jeśli mocny docisk daje 0,0006, to właśnie ta
+         * wartość jest pełnym wychyleniem i cała czułość ekranu musi zmieścić się
+         * między zerem a nią. Inaczej używalibyśmy promila dostępnego zakresu.
+         */
+        fun automatic(
+            signalFullScale: Double = INITIAL_FULL_SCALE_SIGNAL,
+            fullScale: Double = DEFAULT_FULL_SCALE_G
+        ) = Calibration(
+            0.0,
+            listOf(CalPoint(signalFullScale.coerceAtLeast(1e-6), fullScale)),
+            auto = true
+        )
     }
 
     /** Krzywa: zawsze zaczyna się od punktu zerowego, dalej rosnące wzorce. */
@@ -47,14 +68,23 @@ class Calibration(
         val extra = points
             .filter { it.raw.isFinite() && it.grams.isFinite() && it.raw > zero && it.grams > 0 }
             .sortedBy { it.raw }
+        val minGap = minGapFor(extra)
         val out = mutableListOf(CalPoint(zero, 0.0))
         for (p in extra) {
             val gap = p.raw - out.last().raw
-            if (gap >= MIN_GAP) out.add(p)
+            if (gap >= minGap) out.add(p)
             else if (out.size > 1) out[out.size - 1] = p   // za blisko poprzedniego → zastąp
         }
         return out
     }
+
+    private fun minGapFor(sorted: List<CalPoint>): Double {
+        val span = (sorted.lastOrNull()?.raw ?: zero) - zero
+        return maxOf(MIN_GAP_FLOOR, span * MIN_GAP_FRACTION)
+    }
+
+    /** Odstęp uznawany za „ten sam punkt" dla bieżącej krzywej. */
+    val minGap: Double get() = minGapFor(points.sortedBy { it.raw })
 
     /**
      * Nachylenia w węzłach wg Fritscha–Carlsona. Metoda zachowuje monotoniczność,
@@ -125,7 +155,7 @@ class Calibration(
         Calibration(
             zero,
             if (auto) listOf(point)
-            else points.filter { kotlin.math.abs(it.raw - point.raw) >= MIN_GAP } + point,
+            else points.filter { kotlin.math.abs(it.raw - point.raw) >= minGap } + point,
             auto = false
         )
 

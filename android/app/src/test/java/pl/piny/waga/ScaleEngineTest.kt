@@ -68,13 +68,45 @@ class ScaleEngineTest {
     }
 
     @Test
-    fun `zdjecie palca konczy pomiar`() {
+    fun `po zdjeciu palca wynik zostaje na wyswietlaczu`() {
         val e = engine()
-        var (r, t) = e.hold(rawFor(10.0), 2000, 0)
-        assertEquals(ScaleState.HOLD, r.state)
-        val (idle, _) = e.hold(0.0, 800, t, contacts = 0)
-        assertEquals(ScaleState.IDLE, idle.state)
-        assertEquals(0.0, idle.grams!!, 1e-9)
+        val (held, t) = e.hold(rawFor(10.0), 2000, 0)
+        assertEquals(ScaleState.HOLD, held.state)
+        val value = held.grams!!
+
+        val (after, t2) = e.hold(0.0, 1500, t, contacts = 0)
+        assertEquals("wskazanie nie może spaść do zera przy zdejmowaniu palca",
+            ScaleState.RETAINED, after.state)
+        assertEquals(value, after.grams!!, 1e-9)
+
+        // po długiej chwili nadal widać wynik
+        val (later, t3) = e.hold(0.0, 5000, t2, contacts = 0)
+        assertEquals(value, later.grams!!, 1e-9)
+
+        // nowy nacisk zaczyna pomiar od nowa
+        val (fresh, _) = e.hold(rawFor(3.0), 300, t3)
+        assertNotEquals(value, fresh.grams!!)
+    }
+
+    @Test
+    fun `tara kasuje zatrzymany wynik`() {
+        val e = engine()
+        val (_, t) = e.hold(rawFor(10.0), 2000, 0)
+        e.hold(0.0, 500, t, contacts = 0)
+        assertNotNull(e.retained)
+        e.clearTare()
+        assertNull("tara musi czyścić wyświetlacz", e.retained)
+    }
+
+    @Test
+    fun `niestabilny dotyk nie zostawia wyniku`() {
+        val e = engine()
+        var t = 0L
+        // szarpany nacisk — nic się nie ustabilizowało, nie ma czego trzymać
+        repeat(60) { e.update(0.2 + (it % 7) * 0.05, 1, false, t); t += 16 }
+        val (after, _) = e.hold(0.0, 600, t, contacts = 0)
+        assertNull(e.retained)
+        assertEquals(ScaleState.IDLE, after.state)
     }
 
     @Test

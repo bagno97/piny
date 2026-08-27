@@ -3,7 +3,11 @@ package pl.piny.waga
 import kotlin.math.abs
 import kotlin.math.max
 
-enum class ScaleState { IDLE, UNCALIBRATED, MEASURING, SETTLING, HOLD, OVERLOAD }
+enum class ScaleState {
+    IDLE, UNCALIBRATED, MEASURING, SETTLING, HOLD, OVERLOAD,
+    /** Nacisk zdjęty, ale ostatni ustabilizowany odczyt zostaje na wyświetlaczu. */
+    RETAINED
+}
 
 data class Reading(
     val state: ScaleState,
@@ -51,6 +55,14 @@ class ScaleEngine(var calibration: Calibration) {
 
     private var held: Double? = null
     private var shown: Double? = null
+
+    /**
+     * Ostatni ustabilizowany odczyt, trzymany po zdjęciu nacisku. Ekran pojemnościowy
+     * przestaje cokolwiek widzieć, gdy palec odchodzi, więc bez tego wskazanie
+     * spadałoby do zera dokładnie w chwili, w której chce się je odczytać.
+     */
+    var retained: Double? = null
+        private set
     private var stableSince = 0L
     private var lastCapture = 0L
     private var wasActive = false
@@ -63,7 +75,13 @@ class ScaleEngine(var calibration: Calibration) {
 
         if (active != wasActive) {
             filter.resetHistory()
-            if (!active) { tare = 0.0; held = null }
+            if (active) {
+                retained = null              // nowy pomiar zaczyna od czystej karty
+            } else {
+                retained = held ?: retained  // zdjęcie nacisku zachowuje wynik
+                tare = 0.0
+                held = null
+            }
             wasActive = active
         }
 
@@ -97,7 +115,9 @@ class ScaleEngine(var calibration: Calibration) {
             if (!active) held = null
         }
 
-        shown = quantize(held ?: net)
+        val keeping = !active && retained != null
+        val target = if (keeping) retained else (held ?: net)
+        shown = quantize(target, force = held != null || keeping)
 
         val state = when {
             over -> ScaleState.OVERLOAD
@@ -105,6 +125,7 @@ class ScaleEngine(var calibration: Calibration) {
             held != null -> ScaleState.HOLD
             steady -> ScaleState.SETTLING
             active -> ScaleState.MEASURING
+            keeping -> ScaleState.RETAINED
             else -> ScaleState.IDLE
         }
 
@@ -125,11 +146,11 @@ class ScaleEngine(var calibration: Calibration) {
     }
 
     /** Zaokrąglenie do działki z histerezą — bez niej ostatnia cyfra migocze. */
-    private fun quantize(target: Double?): Double? {
+    private fun quantize(target: Double?, force: Boolean): Double? {
         if (target == null) return null
         val q = Math.round(target / DIVISION_G) * DIVISION_G
         val prev = shown
-        return if (prev == null || abs(q - prev) >= DIVISION_G * 0.75 || held != null) q else prev
+        return if (prev == null || force || abs(q - prev) >= DIVISION_G * 0.75) q else prev
     }
 
     /** Tara z bieżącego obciążenia. Zwraca masę wziętą jako tara. */
@@ -143,9 +164,11 @@ class ScaleEngine(var calibration: Calibration) {
         return tare
     }
 
+    /** Kasuje tarę i zatrzymany wynik — czysty start przed kolejnym ważeniem. */
     fun clearTare() {
         tare = 0.0
         held = null
+        retained = null
         shown = null
         filter.resetHistory()
         filter.resetPeak()
@@ -161,7 +184,7 @@ class ScaleEngine(var calibration: Calibration) {
     }
 
     fun reset() {
-        filter.reset(); tare = 0.0; held = null; shown = null
+        filter.reset(); tare = 0.0; held = null; retained = null; shown = null
         stableSince = 0L; lastCapture = 0L; wasActive = false
     }
 }
