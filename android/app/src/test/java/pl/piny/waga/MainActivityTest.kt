@@ -13,6 +13,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowChoreographer
+import org.robolectric.shadows.ShadowDialog
+import android.view.View
+import android.view.ViewGroup
 import java.time.Duration
 import kotlin.math.exp
 
@@ -53,6 +56,18 @@ class MainActivityTest {
     }
 
     private fun idle(ms: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(ms))
+
+    /** Szuka w otwartym arkuszu przycisku o podanym początku napisu. */
+    private fun sheetButton(prefix: String): TextView? {
+        val root = ShadowDialog.getLatestDialog()?.window?.decorView ?: return null
+        val found = mutableListOf<TextView>()
+        fun walk(v: View) {
+            if (v is TextView && v.text?.startsWith(prefix) == true && v.isClickable) found.add(v)
+            if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
+        }
+        walk(root)
+        return found.firstOrNull()
+    }
 
     private fun launch(): MainActivity =
         Robolectric.buildActivity(MainActivity::class.java).setup().get()
@@ -237,5 +252,68 @@ class MainActivityTest {
         assertEquals(1, pan.sample().contacts)
         touch(pan, MotionEvent.ACTION_UP, 0.5f)
         assertEquals(0, pan.sample().contacts)
+    }
+
+    @Test
+    fun `test czujnika zbiera probki dopiero po oddaniu ekranu`() {
+        val a = launch()
+        idle(100)
+
+        a.findViewById<TextView>(R.id.badge).performClick()
+        idle(200)
+        assertTrue("diagnostyka powinna być otwarta", ShadowDialog.getLatestDialog()!!.isShowing)
+
+        val start = sheetButton("Test czujnika")
+        assertNotNull("przycisk testu musi być w arkuszu", start)
+        start!!.performClick()
+        idle(200)
+
+        // arkusz zasłaniał pole pomiarowe i przechwytywał dotknięcia —
+        // pomiar bez oddania ekranu nie zebrałby ani jednej próbki
+        assertFalse("arkusz musi zniknąć na czas pomiaru",
+            ShadowDialog.getLatestDialog()!!.isShowing)
+        assertEquals("baner musi prowadzić użytkownika", View.VISIBLE,
+            a.findViewById<TextView>(R.id.captureBanner).visibility)
+
+        val pan = a.findViewById<PanView>(R.id.pan)
+        touch(pan, MotionEvent.ACTION_DOWN, 0.10f)
+        repeat(70) {
+            touch(pan, MotionEvent.ACTION_MOVE, 0.10f + (it % 8) * 0.06f)
+            idle(100)
+        }
+        idle(500)
+
+        assertEquals(View.GONE, a.findViewById<TextView>(R.id.captureBanner).visibility)
+        assertTrue("po teście wraca arkusz z wynikiem",
+            ShadowDialog.getLatestDialog()!!.isShowing)
+        assertNotNull(sheetButton("Ucz zakresu"))
+    }
+
+    @Test
+    fun `pomiar wzorca zbiera probki z pola pomiarowego`() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        Store(app).saveCalibration(Tool.FINGER, Calibration.automatic())
+
+        val a = launch()
+        idle(100)
+        a.findViewById<android.widget.LinearLayout>(R.id.tools).getChildAt(1).performClick()
+        idle(200)
+
+        val measure = sheetButton("Zmierz wzorzec")
+        assertNotNull("przycisk pomiaru wzorca musi być w arkuszu", measure)
+        measure!!.performClick()
+        idle(200)
+
+        assertFalse("arkusz musi oddać ekran pod docisk",
+            ShadowDialog.getLatestDialog()!!.isShowing)
+
+        val pan = a.findViewById<PanView>(R.id.pan)
+        touch(pan, MotionEvent.ACTION_DOWN, 0.40f)
+        repeat(40) { touch(pan, MotionEvent.ACTION_MOVE, 0.40f + (it % 2) * 0.001f); idle(100) }
+        idle(500)
+
+        assertFalse("wzorzec musi trafić na krzywą", a.engine.calibration.auto)
+        assertEquals(1, a.engine.calibration.referenceCount)
+        assertEquals("zapisana masa wzorca", 6.54, a.engine.calibration.maxMass, 0.001)
     }
 }

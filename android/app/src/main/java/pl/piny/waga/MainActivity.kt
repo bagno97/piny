@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private var displayUnit = DisplayUnit.GRAMS
     private var lastMass: Double? = null
     internal var lastReading: Reading? = null
+    private var lastSelfTest: String? = null
     private var running = false
 
     private lateinit var panBackground: GradientDrawable
@@ -343,13 +344,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
-    private fun sheet(build: (LinearLayout, BottomSheetDialog) -> Unit): BottomSheetDialog {
+    private fun sheet(build: (LinearLayout, BottomSheetDialog) -> Unit) {
         val dialog = BottomSheetDialog(this)
         val binding = SheetBaseBinding.inflate(layoutInflater)
         dialog.setContentView(binding.root)
         build(binding.content, dialog)
         dialog.show()
-        return dialog
     }
 
     private fun LinearLayout.eyebrow(text: String) = addView(TextView(context).apply {
@@ -432,7 +432,7 @@ class MainActivity : AppCompatActivity() {
 
     // ── kalibracja ──────────────────────────────────────────────────────────
 
-    private fun showCalibration() = sheet { content, dialog ->
+    private fun showCalibration(): Unit = sheet { content, dialog ->
         fun refresh() {
             content.removeAllViews()
             val cal = engine.calibration
@@ -469,10 +469,11 @@ class MainActivity : AppCompatActivity() {
             val massField = numberInput("6,54")
             content.addView(massField, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            content.buttonRow(button("Zmierz wzorzec", solid = true) { btn ->
+            content.buttonRow(button("Zmierz wzorzec", solid = true) {
                 val mass = Fmt.parse(massField.text.toString())
                 if (mass == null || mass <= 0) { toast("Podaj masę wzorca w gramach"); return@button }
-                measureReference(mass, btn) { refresh() }
+                dialog.dismiss()                       // oddajemy ekran pod docisk
+                measureReference(mass) { showCalibration() }
             })
 
             content.sectionLabel("03 · Zapisane wzorce")
@@ -536,37 +537,70 @@ class MainActivity : AppCompatActivity() {
         refresh()
     }
 
-    /** Zbiera sygnał przez 3 s i zapisuje medianę jako wzorzec o podanej masie. */
-    private fun measureReference(mass: Double, btn: TextView, done: () -> Unit) {
-        val samples = mutableListOf<Double>()
-        btn.isEnabled = false
+    /**
+     * Zbiera próbki na głównym ekranie, z arkuszem zamkniętym.
+     *
+     * Arkusz zasłania pole pomiarowe i przechwytuje dotknięcia, więc pomiar
+     * uruchamiany „zza" niego nie miał prawa zebrać ani jednej próbki. Każdy
+     * pomiar wymagający nacisku musi więc najpierw oddać ekran użytkownikowi.
+     */
+    private fun captureOnPan(
+        seconds: Int,
+        prompt: String,
+        onDone: (samples: List<Sample>, signals: List<Double>) -> Unit
+    ) {
+        val samples = mutableListOf<Sample>()
+        val signals = mutableListOf<Double>()
+        val steps = seconds * 10
         var step = 0
-        val label = btn.text
+        b.captureBanner.visibility = View.VISIBLE
+        b.captureBanner.text = "$prompt · $seconds s"
+
         val task = object : Runnable {
             override fun run() {
-                if (b.pan.sample().contacts > 0) samples.add(engine.signal)
+                val sample = b.pan.sample()
+                if (sample.contacts > 0) {
+                    samples.add(sample)
+                    signals.add(engine.signal)
+                }
                 step++
-                btn.text = "Dociskaj… ${3 - step / 10} s"
-                if (step < 30) { ui.postDelayed(this, 100); return }
-
-                btn.isEnabled = true
-                btn.text = label
-                if (samples.size < 8) { toast("Za mało kontaktu — trzymaj wzorzec przez całe 3 s"); return }
-                val raw = samples.sorted()[samples.size / 2]
-                if (raw - engine.calibration.zero <= 0.01) { toast("Czujnik nie zarejestrował nacisku"); return }
-                engine.calibration = engine.calibration.withPoint(CalPoint(raw, mass))
-                store.saveCalibration(b.pan.tool, engine.calibration)
-                paintCalibrationStamp()
-                toast("Zapisano wzorzec ${Fmt.pl(mass, 2)} g")
-                done()
+                val left = seconds - step / 10
+                b.captureBanner.text =
+                    if (samples.isEmpty()) "Dotknij pola pomiarowego · $left s"
+                    else "$prompt · $left s"
+                if (step < steps) { ui.postDelayed(this, 100); return }
+                b.captureBanner.visibility = View.GONE
+                buzz(18)
+                onDone(samples, signals)
             }
         }
+        buzz(12)
         ui.postDelayed(task, 100)
+    }
+
+    /** Mierzy wzorzec o znanej masie i dopisuje go do krzywej. */
+    private fun measureReference(mass: Double, done: () -> Unit) {
+        captureOnPan(3, "Dociskaj wzorzec") { _, signals ->
+            if (signals.size < 8) {
+                toast("Za mało kontaktu — trzymaj wzorzec przez całe 3 s")
+            } else {
+                val raw = signals.sorted()[signals.size / 2]
+                if (raw - engine.calibration.zero <= 1e-6) {
+                    toast("Czujnik nie zarejestrował nacisku")
+                } else {
+                    engine.calibration = engine.calibration.withPoint(CalPoint(raw, mass))
+                    store.saveCalibration(b.pan.tool, engine.calibration)
+                    paintCalibrationStamp()
+                    toast("Zapisano wzorzec ${Fmt.pl(mass, 2)} g")
+                }
+            }
+            done()
+        }
     }
 
     // ── przelicznik ─────────────────────────────────────────────────────────
 
-    private fun showConverter() = sheet { content, dialog ->
+    private fun showConverter(): Unit = sheet { content, dialog ->
         content.eyebrow("Przelicznik")
         content.title("Karaty i pozostałe jednostki")
         content.body(
@@ -658,7 +692,7 @@ class MainActivity : AppCompatActivity() {
 
     // ── dziennik ────────────────────────────────────────────────────────────
 
-    private fun showHistory() = sheet { content, dialog ->
+    private fun showHistory(): Unit = sheet { content, dialog ->
         fun refresh() {
             content.removeAllViews()
             content.eyebrow("Dziennik")
@@ -702,7 +736,7 @@ class MainActivity : AppCompatActivity() {
 
     // ── diagnostyka ─────────────────────────────────────────────────────────
 
-    private fun showDiagnostics() = sheet { content, dialog ->
+    private fun showDiagnostics(): Unit = sheet { content, dialog ->
         val force = b.pan.channel == Channel.PRESSURE ||
             (b.pan.channel == Channel.AUTO && b.pan.probe.hasForceSensor)
 
@@ -744,8 +778,15 @@ class MainActivity : AppCompatActivity() {
         )
 
         content.sectionLabel("Pomiar na żywo")
-        val report = content.mono("Naciśnij „Test czujnika” i przez 6 s naciskaj raz mocniej, raz słabiej.")
-        content.buttonRow(button("Test czujnika · 6 s", solid = true) { btn -> selfTest(btn, report) })
+        content.mono(
+            lastSelfTest ?: "Naciśnij „Test czujnika”. Arkusz się zamknie i odda Ci ekran — " +
+                "przez 6 s naciskaj środek pola pomiarowego, raz mocniej, raz słabiej. " +
+                "Wynik wróci tutaj."
+        )
+        content.buttonRow(button("Test czujnika · 6 s", solid = true) {
+            dialog.dismiss()                      // arkusz zasłania pole pomiarowe
+            selfTest()
+        })
         content.buttonRow(
             button("Ucz zakresu od nowa") {
                 store.resetObservedFullScale(b.pan.tool)
@@ -756,61 +797,52 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun selfTest(btn: TextView, report: TextView) {
+    private fun selfTest() {
         b.pan.probe.reset()
-        val pressures = mutableListOf<Double>()
-        val areas = mutableListOf<Double>()
-        btn.isEnabled = false
-        var step = 0
-        val label = btn.text
-        val task = object : Runnable {
-            override fun run() {
-                val s = b.pan.sample()
-                if (s.contacts > 0) { pressures.add(s.pressureSum); areas.add(s.areaSumMm2) }
-                step++
-                btn.text = "Naciskaj… ${6 - step / 10} s"
-                report.text = "próbek: ${pressures.size}"
-                if (step < 60) { ui.postDelayed(this, 100); return }
-
-                btn.isEnabled = true
-                btn.text = label
-                if (pressures.size < 10) {
-                    report.text = "Test przerwany — ekran nie był dotykany.\n" +
-                        "Trzymaj palec na polu pomiarowym przez całe 6 s."
-                    return
-                }
-                val pMax = pressures.max()
-                val pSpan = pMax - pressures.min()
-                val pRelative = if (pMax > 0) pSpan / pMax else 0.0
-                val aSpan = if (areas.isEmpty()) 0.0 else areas.max() - areas.min()
-                val forceOk = b.pan.probe.hasForceSensor
-                val areaOk = areas.isNotEmpty() && areas.max() > 0 && aSpan / areas.max() > 0.15
-
-                b.pan.channel = when {
-                    forceOk -> Channel.PRESSURE
-                    areaOk -> Channel.AREA
-                    else -> Channel.AUTO
-                }
-                store.channel = b.pan.channel
-                updateSensorBadge()
-
-                val verdict = when {
-                    forceOk -> "Czujnik siły działa. Po kalibracji odczyt jest ilościowy."
-                    areaOk -> "Brak czujnika siły, jest pole styku. Włączam tryb przybliżony."
-                    else -> "Ekran nie różnicuje nacisku — pomiar ilościowy jest niemożliwy."
-                }
-                report.text = verdict + "\n\n" +
-                    "nacisk min  ${String.format(Locale.US, "%.6f", pressures.min())}\n" +
-                    "nacisk max  ${String.format(Locale.US, "%.6f", pMax)}\n" +
-                    "rozpiętość  ${String.format(Locale.US, "%.6f", pSpan)}" +
-                    "  (${String.format(Locale.US, "%.0f", pRelative * 100)}% zakresu)\n" +
-                    "poziomy     ${b.pan.probe.levelCount}\n" +
-                    "pole styku  ${String.format(Locale.US, "%.1f", areas.minOrNull() ?: 0.0)}" +
-                    " – ${String.format(Locale.US, "%.1f", areas.maxOrNull() ?: 0.0)} mm²\n" +
-                    "pełna skala ${String.format(Locale.US, "%.6f", engine.calibration.curve.last().raw)}\n" +
-                    "próbek      ${pressures.size}"
+        captureOnPan(6, "Naciskaj raz mocniej, raz słabiej") { samples, _ ->
+            if (samples.size < 10) {
+                lastSelfTest = "Test przerwany — ekran nie był dotykany.\n" +
+                    "Trzymaj palec na polu pomiarowym przez całe 6 s."
+                showDiagnostics()
+                return@captureOnPan
             }
+
+            val pressures = samples.map { it.pressureSum }
+            val areas = samples.map { it.areaSumMm2 }
+            val pMax = pressures.max()
+            val pSpan = pMax - pressures.min()
+            val pRelative = if (pMax > 0) pSpan / pMax else 0.0
+            val aMax = areas.maxOrNull() ?: 0.0
+            val aSpan = aMax - (areas.minOrNull() ?: 0.0)
+
+            val forceOk = b.pan.probe.hasForceSensor
+            val areaOk = aMax > 0 && aSpan / aMax > 0.15
+
+            b.pan.channel = when {
+                forceOk -> Channel.PRESSURE
+                areaOk -> Channel.AREA
+                else -> Channel.AUTO
+            }
+            store.channel = b.pan.channel
+            updateSensorBadge()
+
+            val verdict = when {
+                forceOk -> "Czujnik siły działa. Po kalibracji odczyt jest ilościowy."
+                areaOk -> "Brak czujnika siły, jest pole styku. Włączam tryb przybliżony."
+                else -> "Ekran nie różnicuje nacisku — pomiar ilościowy jest niemożliwy."
+            }
+
+            lastSelfTest = verdict + "\n\n" +
+                "nacisk min  ${String.format(Locale.US, "%.6f", pressures.min())}\n" +
+                "nacisk max  ${String.format(Locale.US, "%.6f", pMax)}\n" +
+                "rozpiętość  ${String.format(Locale.US, "%.6f", pSpan)}" +
+                "  (${String.format(Locale.US, "%.0f", pRelative * 100)}%)\n" +
+                "poziomy     ${b.pan.probe.levelCount}\n" +
+                "pole styku  ${String.format(Locale.US, "%.1f", areas.minOrNull() ?: 0.0)}" +
+                " – ${String.format(Locale.US, "%.1f", aMax)} mm²\n" +
+                "pełna skala ${String.format(Locale.US, "%.6f", engine.calibration.curve.last().raw)}\n" +
+                "próbek      ${samples.size}"
+            showDiagnostics()
         }
-        ui.postDelayed(task, 100)
     }
 }

@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 52 testy, bez emulatora
+gradle :app:testDebugUnitTest    # 54 testy, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,8 +34,9 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.2.apk` (1,7 MB, podpisany,
-minSdk 24). Suma kontrolna jest obok, w pliku `.sha256`.
+W `dist/` leży ostatnia **zbudowana** paczka (`waga-1.2.apk`, podpisana, minSdk 24)
+wraz z sumą kontrolną. Kod w repozytorium jest już w wersji 1.3 — złożenie jej
+wymaga uruchomienia `assembleRelease` z opisanymi niżej parametrami podpisu.
 
 ## Testy
 
@@ -96,6 +97,15 @@ Ekran pojemnościowy przestaje cokolwiek widzieć w chwili, gdy palec odchodzi �
 bez zatrzymania wskazania odczyt spadałby do zera dokładnie wtedy, gdy chce się
 go odczytać. Ostatni ustabilizowany pomiar zostaje więc na wyświetlaczu ze stanem
 „ostatni pomiar", dopóki nie zacznie się nowy nacisk albo nie naciśnie się Tary.
+
+## Pomiar wymaga oddania ekranu
+
+Każdy pomiar, do którego trzeba nacisnąć ekran — kalibracja wzorcem i test
+czujnika — zamyka arkusz i zbiera próbki na głównym ekranie, prowadząc
+użytkownika banerem z odliczaniem. Arkusz `BottomSheetDialog` ma własne okno:
+zasłania pole pomiarowe i przechwytuje dotknięcia, więc pomiar uruchamiany
+„zza" niego nie zbierał ani jednej próbki. Dwa testy Robolectrica pilnują, że
+arkusz znika na czas pomiaru i że próbki z pola pomiarowego trafiają na krzywą.
 
 ## Kalibracja jest nieobowiązkowa
 
