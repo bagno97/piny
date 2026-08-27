@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Waga">
+  <rect width="512" height="512" fill="#0B1216"/>
+  <g fill="none" stroke="#22333A" stroke-width="6">
+    <circle cx="256" cy="256" r="60"/>
+    <circle cx="256" cy="256" r="100"/>
+  </g>
+  <circle cx="256" cy="256" r="44" fill="#F2803C"/>
+  <path d="M256 230v52M236 248l20-18 20 18" fill="none" stroke="#0B1216" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

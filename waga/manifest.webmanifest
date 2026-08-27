@@ -1,0 +1,15 @@
+{
+  "name": "Waga Ekranowa S-1",
+  "short_name": "Waga",
+  "description": "Waga korzystająca z czujnika nacisku ekranu telefonu.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1216",
+  "theme_color": "#0B1216",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
