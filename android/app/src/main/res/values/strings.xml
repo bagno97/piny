@@ -37,44 +37,55 @@
     <string name="tool_history">Pomiary</string>
     <string name="close">Zamknij</string>
 
-    <!-- waga rezonansowa -->
-    <string name="res_title">Waga rezonansowa</string>
-    <string name="res_back">‹ Wróć</string>
-    <string name="res_dash">— Hz</string>
-    <string name="res_intro">Telefon oparty na czymś miękkim drga jak masa na sprężynie. Położony przedmiot zwiększa masę układu, więc częstotliwość drgań spada — i z tego spadku liczona jest masa. Ta metoda nie potrzebuje dotyku: kamień leżący biernie jest w pełni mierzalny.
 
-Połóż telefon na złożonym ręczniku, gąbce albo piance i nie ruszaj nim podczas pomiaru.</string>
-    <string name="res_status_start">Zacznij od kroku 1: zmierz telefon bez obciążenia.</string>
+    <!-- waga czujnikowa -->
+    <string name="sen_title">Waga czujnikowa</string>
+    <string name="sen_back">‹ Wróć</string>
+    <string name="sen_open">Czujniki</string>
+    <string name="sen_intro">Mierzy przedmiot LEŻĄCY na telefonie, bez dotykania ekranu. Używa dwóch niezależnych kanałów: przechyłu (przedmiot poza środkiem ugina podłoże i obraca telefon — odczyt trwa, dopóki przedmiot leży) oraz rezonansu (dołożona masa obniża częstotliwość drgań własnych).
 
-    <string name="res_step_1">Krok 1 · telefon pusty</string>
-    <string name="res_step_2">Krok 2 · wzorzec o znanej masie</string>
-    <string name="res_step_3">Krok 3 · ważenie</string>
+Połóż telefon na złożonym ręczniku, gąbce albo piance. Przedmiot kładź zawsze w TYM SAMYM miejscu, najlepiej przy krawędzi — im dalej od środka, tym większy przechył. Podczas pomiaru nie dotykaj telefonu.</string>
+    <string name="sen_status_start">Zacznij od kroku 1: zmierz pusty telefon.</string>
 
-    <string name="res_btn_empty">Zmierz pusty telefon</string>
-    <string name="res_btn_reference">Zmierz wzorzec</string>
-    <string name="res_btn_weigh">Zważ przedmiot</string>
+    <string name="sen_step_1">Krok 1 · pusty telefon</string>
+    <string name="sen_step_2">Krok 2 · wzorce o znanej masie</string>
+    <string name="sen_step_3">Krok 3 · ważenie</string>
 
-    <string name="res_hint_mass">Masa wzorca w gramach</string>
-    <string name="res_default_mass">20,0</string>
+    <string name="sen_btn_zero">Zmierz pusty telefon</string>
+    <string name="sen_btn_reference">Dodaj wzorzec</string>
+    <string name="sen_btn_weigh">Zważ przedmiot</string>
+    <string name="sen_btn_reset">Skasuj kalibrację czujnikową</string>
 
-    <string name="res_not_measured">nie zmierzono</string>
-    <string name="res_not_calibrated">brak kalibracji</string>
-    <string name="res_calibrated">układ %1$s g · rozdzielczość ok. %2$s g</string>
+    <string name="sen_hint_mass">Masa wzorca w gramach</string>
+    <string name="sen_default_mass">20,0</string>
 
-    <string name="res_recording_empty">Nie dotykaj telefonu… mierzę drgania własne.</string>
-    <string name="res_recording_reference">Wzorzec na telefonie, ręce z dala… mierzę.</string>
-    <string name="res_recording_object">Przedmiot na telefonie, ręce z dala… mierzę.</string>
+    <string name="sen_not_measured">nie zmierzono</string>
+    <string name="sen_zero_ready">zmierzony · rezonans %1$s</string>
+    <string name="sen_res_missing">brak</string>
+    <string name="sen_no_references">brak wzorców — dodaj co najmniej jeden</string>
+    <string name="sen_model_trained">model z %1$d wzorców · oba kanały</string>
+    <string name="sen_model_single">%1$d wzorzec · kanał: %2$s</string>
 
-    <string name="res_empty_done">Zmierzono drgania własne. Teraz połóż wzorzec i wykonaj krok 2.</string>
-    <string name="res_reference_done">Skalibrowano. Masa układu %1$s g, rozdzielczość ok. %2$s g.</string>
-    <string name="res_weigh_done">Zważono. To %1$s ct.</string>
+    <string name="sen_tilt_none">przechył —</string>
+    <string name="sen_tilt_value">przechył %1$s°</string>
+    <string name="sen_res_none">rezonans —</string>
+    <string name="sen_res_value">rezonans %1$s Hz</string>
+    <string name="sen_presence_yes">czujnik zbliżeniowy: coś leży</string>
+    <string name="sen_presence_no">czujnik zbliżeniowy: brak wskazania</string>
 
-    <string name="res_need_empty">Najpierw zmierz pusty telefon (krok 1).</string>
-    <string name="res_need_mass">Podaj masę wzorca w gramach.</string>
-    <string name="res_need_calibration">Najpierw wykonaj kroki 1 i 2.</string>
-    <string name="res_bad_reference">Częstotliwość nie spadła — to przeczy fizyce. Sprawdź, czy telefon leży na miękkim podłożu i czy wzorzec naprawdę na nim spoczywa.</string>
-    <string name="res_no_peak">Nie znalazłem wyraźnych drgań. Podłoże jest za twarde albo za miękkie — spróbuj złożonego ręcznika lub gąbki.</string>
-    <string name="res_too_few_samples">Za mało próbek (%1$d). Akcelerometr nie nadążył — spróbuj ponownie.</string>
-    <string name="res_no_accelerometer">Ten telefon nie udostępnia akcelerometru — metoda rezonansowa jest niedostępna.</string>
-    <string name="res_open">Rezonans</string>
+    <string name="sen_capturing_zero">Nie dotykaj telefonu… mierzę stan pusty.</string>
+    <string name="sen_capturing_reference">Wzorzec na telefonie, ręce z dala… mierzę.</string>
+    <string name="sen_capturing_object">Przedmiot na telefonie, ręce z dala… mierzę.</string>
+
+    <string name="sen_zero_done">Zmierzono stan pusty (rezonans %1$s). Połóż wzorzec i wykonaj krok 2.</string>
+    <string name="sen_reference_added">Dodano wzorzec %1$s g: przechył %2$s°, spadek częstotliwości %3$s Hz.</string>
+    <string name="sen_weigh_done">Zważono. To %1$s ct.</string>
+    <string name="sen_reset_done">Kalibracja czujnikowa skasowana.</string>
+
+    <string name="sen_need_zero">Najpierw zmierz pusty telefon (krok 1).</string>
+    <string name="sen_need_mass">Podaj masę wzorca w gramach.</string>
+    <string name="sen_need_calibration">Najpierw wykonaj kroki 1 i 2.</string>
+    <string name="sen_unstable">Telefon się poruszał (rozrzut %1$s°). Odstaw go i nie dotykaj podczas pomiaru.</string>
+    <string name="sen_no_signal">Żaden kanał nic nie wykrył. Połóż przedmiot dalej od środka albo na bardziej miękkim podłożu.</string>
+    <string name="sen_no_accelerometer">Ten telefon nie udostępnia akcelerometru — waga czujnikowa jest niedostępna.</string>
 </resources>

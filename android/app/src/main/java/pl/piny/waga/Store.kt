@@ -125,4 +125,55 @@ class Store(context: Context) {
     fun clearResonanceScale() {
         prefs.edit().remove("res_constant").apply()
     }
+
+    // ── waga czujnikowa: punkt odniesienia i wzorce ────────────────────────
+
+    /** Kierunek grawitacji przy pustym telefonie. */
+    var baselineTilt: Direction?
+        get() {
+            val x = prefs.getFloat("base_x", Float.NaN)
+            val y = prefs.getFloat("base_y", Float.NaN)
+            val z = prefs.getFloat("base_z", Float.NaN)
+            return if (x.isNaN() || y.isNaN() || z.isNaN()) null
+            else Direction(x.toDouble(), y.toDouble(), z.toDouble())
+        }
+        set(v) {
+            val e = prefs.edit()
+            if (v == null) e.remove("base_x").remove("base_y").remove("base_z")
+            else e.putFloat("base_x", v.x.toFloat())
+                .putFloat("base_y", v.y.toFloat())
+                .putFloat("base_z", v.z.toFloat())
+            e.apply()
+        }
+
+    /** Częstotliwość drgań własnych pustego telefonu. */
+    var baselineHz: Double
+        get() = prefs.getFloat("base_hz", 0f).toDouble()
+        set(v) = prefs.edit().putFloat("base_hz", v.toFloat()).apply()
+
+    /** Wzorce zebrane do nauki modelu: przechył, spadek częstotliwości, masa. */
+    var sensorSamples: List<SensorSample>
+        get() {
+            val raw = prefs.getString("sensor_samples", "[]") ?: "[]"
+            return runCatching {
+                val arr = JSONArray(raw)
+                (0 until arr.length()).map {
+                    val o = arr.getJSONObject(it)
+                    SensorSample(o.getDouble("tilt"), o.getDouble("drop"), o.getDouble("g"))
+                }
+            }.getOrDefault(emptyList())
+        }
+        set(v) {
+            val arr = JSONArray()
+            v.forEach {
+                arr.put(JSONObject().put("tilt", it.tiltDeg).put("drop", it.freqDrop).put("g", it.grams))
+            }
+            prefs.edit().putString("sensor_samples", arr.toString()).apply()
+        }
+
+    fun clearSensorScale() {
+        baselineTilt = null
+        sensorSamples = emptyList()
+        prefs.edit().remove("base_hz").apply()
+    }
 }
