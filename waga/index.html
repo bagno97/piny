@@ -423,7 +423,11 @@ const DISPLAY = [
 ];
 const D_G = 0.1;   // działka odczytu w gramach
 
-const dec = (x, n) => x.toFixed(n).replace(".", ",");
+const dec = (x, n) => {
+  // wartość mieszcząca się w połowie ostatniej cyfry to zero — inaczej szum daje "-0,0"
+  const half = 0.5 / Math.pow(10, n);
+  return (Math.abs(x) < half ? 0 : x).toFixed(n).replace(".", ",");
+};
 const parseNum = s => { const v = parseFloat(String(s).replace(",", ".").trim()); return isFinite(v) ? v : NaN; };
 
 /* ══ Stan ════════════════════════════════════════════════════════════════ */
@@ -464,7 +468,7 @@ function notePressure(p){
   if (p < pMin) pMin = p;
   if (p > pMax) pMax = p;
   const q = Math.round(p * 100) / 100;
-  if (q !== 0 && q !== 0.5 && q !== 1) pLevels.add(q);
+  if (q !== 0 && q !== 0.5 && q !== 1 && pLevels.size < 64) pLevels.add(q);
   sawForce = (pSeen >= 6 && pMax - pMin >= 0.06) || pLevels.size >= 4;
 }
 const noteArea = (rx, ry) => { if (rx > 1 && ry > 1){ sawArea = true; return rx * ry; } return 0; };
@@ -581,8 +585,16 @@ function massFromRaw(r){
     const a = pts[i-1], b = pts[i];
     if (r <= b.raw) return a.g + (b.g - a.g) * (r - a.raw) / (b.raw - a.raw);
   }
+  // powyżej ostatniego wzorca ekstrapolujemy nachylenie, ale z twardym limitem —
+  // bez niego trzy palce na ekranie „ważyłyby" setki gramów
   const a = pts[pts.length-2], b = pts[pts.length-1];
-  return b.g + (r - b.raw) * (b.g - a.g) / (b.raw - a.raw);
+  const v = b.g + (r - b.raw) * (b.g - a.g) / (b.raw - a.raw);
+  return Math.min(v, b.g * EXTRAPOLATION_LIMIT);
+}
+const EXTRAPOLATION_LIMIT = 1.5;
+function beyondRange(r){
+  const pts = calPoints();
+  return pts.length >= 2 && r > pts[pts.length-1].raw;
 }
 
 /* ══ Filtracja, stabilność, odczyt ═══════════════════════════════════════ */
@@ -676,6 +688,7 @@ function render(g, active, steady, over){
 
   if (over)                     subEl.textContent = "przeciążenie";
   else if (!isCalibrated())     subEl.textContent = "wymaga kalibracji";
+  else if (active && beyondRange(rawSmooth)) subEl.textContent = "poza zakresem wzorców";
   else if (held !== null)       subEl.textContent = "◼ zatrzymano";
   else if (steady)              subEl.textContent = "stabilizacja…";
   else if (active)              subEl.textContent = "pomiar";
@@ -821,9 +834,10 @@ function convSet(grams){
 
 $("convRows").addEventListener("input", e => {
   if (convLock || !e.target.dataset.u) return;
-  const v = parseNum(e.target.value);
   const src = e.target.dataset.u;
-  if (!isFinite(v)){ return; }
+  if (!e.target.value.trim()){ convSet(null); return; }
+  const v = parseNum(e.target.value);
+  if (!isFinite(v)) return;
   const grams = v * U[src].g;
   convLock = true;
   for (const inp of $("convRows").querySelectorAll("input")){
@@ -943,6 +957,16 @@ function paintInfo(){
 $("unitLabel").textContent = displayUnit().label;
 paintMode(); paintCal(); paintHistory(); convSet(null);
 document.addEventListener("gesturestart", e => e.preventDefault());
+
+// ekran nie może zgasnąć w trakcie ważenia
+let wakeLock = null;
+async function keepAwake(){
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch(e){}
+}
+keepAwake();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !wakeLock) keepAwake();
+});
 if (document.querySelector('link[rel="manifest"]') && "serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }

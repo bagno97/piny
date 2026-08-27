@@ -1,0 +1,5 @@
+# klucz podpisujący nie trafia do repozytorium
+keystore/
+build/
+.gradle/
+local.properties

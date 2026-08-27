@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Waga</string>
+    <string name="brand">Waga S-1</string>
+
+    <string name="sensor_detecting">wykrywanie…</string>
+    <string name="sensor_force">czujnik nacisku</string>
+    <string name="sensor_approx">tryb przybliżony</string>
+    <string name="sensor_none">brak nacisku</string>
+
+    <string name="mode_unknown">czujnik: —</string>
+    <string name="mode_force">tryb: nacisk</string>
+    <string name="mode_area">tryb: pole styku</string>
+    <string name="mode_none">tryb: niedostępny</string>
+
+    <string name="cal_none">bez kalibracji</string>
+    <string name="value_placeholder">––,–</string>
+    <string name="unit_g">g</string>
+
+    <string name="state_idle">połóż lub naciśnij</string>
+    <string name="state_measuring">pomiar</string>
+    <string name="state_settling">stabilizacja…</string>
+    <string name="state_hold">◼ zatrzymano</string>
+    <string name="state_overload">przeciążenie</string>
+    <string name="state_uncalibrated">wymaga kalibracji</string>
+    <string name="state_beyond">poza zakresem wzorców</string>
+
+    <string name="signal">sygnał czujnika</string>
+    <string name="contacts_zero">0 punktów styku</string>
+    <string name="division">d = 0,1 g</string>
+
+    <string name="tool_tare">Tara</string>
+    <string name="tool_calibration">Kalibracja</string>
+    <string name="tool_converter">Karaty</string>
+    <string name="tool_history">Pomiary</string>
+    <string name="close">Zamknij</string>
+</resources>
