@@ -199,9 +199,10 @@ class MainActivityTest {
         val store = Store(org.robolectric.RuntimeEnvironment.getApplication())
         store.displayUnit = DisplayUnit.GRAMS
         val a = launch()
-        val tools = a.findViewById<android.widget.LinearLayout>(R.id.tools)
-        tools.getChildAt(3).performClick()
-        idle(50)
+        idle(100)
+        // jednostkę przełącza się dotknięciem symbolu przy liczbie
+        a.findViewById<TextView>(R.id.unit).performClick()
+        idle(100)
         assertEquals(DisplayUnit.CARATS, Store(a).displayUnit)
         assertEquals("ct", a.findViewById<TextView>(R.id.unit).text.toString())
     }

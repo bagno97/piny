@@ -48,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private var running = false
 
     private lateinit var panBackground: GradientDrawable
-    private lateinit var unitButtonLabel: TextView
 
     private var colInk = 0; private var colMuted = 0; private var colLine = 0
     private var colAccent = 0; private var colOk = 0; private var colBad = 0
@@ -91,6 +90,9 @@ class MainActivity : AppCompatActivity() {
         updateSensorBadge()
 
         b.badge.setOnClickListener { showDiagnostics() }
+        // jednostkę przełącza się dotknięciem symbolu przy liczbie — to zwalnia
+        // miejsce w pasku narzędzi na tryb rezonansowy
+        b.unit.setOnClickListener { cycleUnit() }
 
         // przełączenie palec/rysik wczytuje profil tego narzędzia w locie
         b.pan.onToolChanged = { tool ->
@@ -143,9 +145,9 @@ class MainActivity : AppCompatActivity() {
         b.tools.addView(tool("◎", getString(R.string.tool_tare), primary = true) { doTare() })
         b.tools.addView(tool("◆", getString(R.string.tool_calibration)) { showCalibration() })
         b.tools.addView(tool("◇", getString(R.string.tool_converter)) { showConverter() })
-        val unitTool = tool("⇄", displayUnit.label) { cycleUnit() }
-        unitButtonLabel = unitTool.getChildAt(1) as TextView
-        b.tools.addView(unitTool)
+        b.tools.addView(tool("∿", getString(R.string.res_open)) {
+            startActivity(android.content.Intent(this, ResonanceActivity::class.java))
+        })
         b.tools.addView(tool("≡", getString(R.string.tool_history)) { showHistory() })
     }
 
@@ -184,7 +186,7 @@ class MainActivity : AppCompatActivity() {
     private fun cycleUnit() {
         displayUnit = displayUnit.next()
         store.displayUnit = displayUnit
-        unitButtonLabel.text = displayUnit.label
+        toast("Jednostka: ${displayUnit.label}")
     }
 
     private fun doTare() {

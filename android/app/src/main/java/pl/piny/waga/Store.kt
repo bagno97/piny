@@ -101,4 +101,28 @@ class Store(context: Context) {
     }
 
     fun clearHistory() { history = emptyList() }
+
+    // ── waga rezonansowa ───────────────────────────────────────────────────
+
+    var resonanceEmptyHz: Double
+        get() = prefs.getFloat("res_empty", 0f).toDouble()
+        set(v) = prefs.edit().putFloat("res_empty", v.toFloat()).apply()
+
+    fun loadResonanceScale(): ResonanceScale? {
+        val empty = resonanceEmptyHz
+        val constant = prefs.getFloat("res_constant", 0f).toDouble()
+        if (empty <= 0 || constant <= 0) return null
+        return ResonanceScale(empty, constant)
+    }
+
+    fun saveResonanceScale(scale: ResonanceScale) {
+        prefs.edit()
+            .putFloat("res_empty", scale.emptyHz.toFloat())
+            .putFloat("res_constant", scale.constant.toFloat())
+            .apply()
+    }
+
+    fun clearResonanceScale() {
+        prefs.edit().remove("res_constant").apply()
+    }
 }

@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 54 testy, bez emulatora
+gradle :app:testDebugUnitTest    # 64 testy, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,9 +34,8 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-W `dist/` leży ostatnia **zbudowana** paczka (`waga-1.2.apk`, podpisana, minSdk 24)
-wraz z sumą kontrolną. Kod w repozytorium jest już w wersji 1.3 — złożenie jej
-wymaga uruchomienia `assembleRelease` z opisanymi niżej parametrami podpisu.
+Gotowy plik do zainstalowania leży w `dist/waga-1.3.apk` (podpisany, minSdk 24).
+Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
 
@@ -66,6 +65,49 @@ bez emulatora.
 | `PanView.kt` | odczyt `MotionEvent`, wybór kanału, rysowanie pola pomiarowego |
 | `Store.kt` | profile kalibracji (osobno palec i rysik) oraz dziennik |
 | `MainActivity.kt` | pętla 60 Hz, interfejs, arkusze |
+| `Fft.kt` | przekształcenie Fouriera o podstawie 2, okno Hanna |
+| `Resonance.kt` | szczyt widma i przeliczenie częstotliwości na masę |
+| `ResonanceActivity.kt` | waga rezonansowa: akcelerometr, pobudzenie, kalibracja |
+
+## Dwie niezależne metody pomiaru
+
+Aplikacja ma dwa tryby, oparte na zupełnie różnej fizyce.
+
+**Waga ekranowa** czyta nacisk z ekranu dotykowego. Wymaga kontaktu przewodzącego,
+więc mierzy tylko to, co naciska palec albo rysik. Przedmiot bierny — kamień,
+odważnik — jest dla ekranu pojemnościowego niewidzialny.
+
+**Waga rezonansowa** (`ResonanceActivity`) mierzy masę przedmiotu **leżącego**
+na telefonie i nie potrzebuje żadnego dotyku. Telefon oparty na miękkim podłożu
+jest układem masa–sprężyna: po impulsie wibracji drga z częstotliwością
+f = (1/2π)·√(k/M). Położony przedmiot zwiększa M, więc f spada, a z tego spadku
+liczy się masę. Stałej sprężystości nie znamy, więc wyznacza ją jeden wzorzec —
+dokładnie tak, jak kalibruje się każdą wagę sprężynową:
+
+    M = C/f²,  C = k/4π²
+    C = m_wzorca / (1/f_wzorzec² − 1/f_pusty²)
+    m = C · (1/f² − 1/f_pusty²)
+
+Sygnał z akcelerometru (`SENSOR_DELAY_FASTEST`, ~400 Hz) przechodzi przez okno
+Hanna i FFT o podstawie 2, a szczyt widma jest doprecyzowany interpolacją
+paraboliczną — to daje rozdzielczość lepszą niż odstęp prążków. Szczyt musi
+wystawać trzykrotnie ponad tło, inaczej pomiar jest odrzucany jako szum.
+Kalibracja odrzuca też wynik sprzeczny z fizyką: dołożenie masy nie może
+podnieść częstotliwości.
+
+Zasięg metody dla telefonu ~200 g drgającego przy 40 Hz, przy niepewności
+odczytu 0,05 Hz:
+
+| masa | spadek częstotliwości | mierzalne |
+|------|----------------------|-----------|
+| 0,4 g (2 karaty) | 0,04 Hz | nie — w szumie |
+| 1 g | 0,10 Hz | na granicy |
+| 5 g | 0,49 Hz | tak |
+| 20 g | 1,86 Hz | pewnie |
+| 100 g | 7,34 Hz | pewnie |
+
+Aplikacja podaje wyliczoną rozdzielczość po kalibracji, więc nie trzeba zgadywać,
+czy dany egzemplarz i podłoże wystarczą.
 
 ## Skala sterownika nie jest znana z góry
 
