@@ -1,6 +1,10 @@
 package pl.piny.waga
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -34,7 +38,12 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), SensorEventListener {
+
+    companion object {
+        /** Okno uśredniania przechyłu — ok. 3 s przy 50 Hz. */
+        const val TILT_WINDOW = 160
+    }
 
     private lateinit var b: ActivityMainBinding
     private lateinit var store: Store
@@ -54,6 +63,15 @@ class MainActivity : AppCompatActivity() {
     private var colPanel = 0; private var colPanel2 = 0; private var colWarn = 0
 
     private val ui = Handler(Looper.getMainLooper())
+
+    // ── podgląd przechyłu wprost na głównym ekranie ─────────────────────────
+    // Bez tego jedyny kanał widzący LEŻĄCY przedmiot był schowany na osobnym
+    // ekranie i można go było w ogóle nie znaleźć.
+    private var sensors: SensorManager? = null
+    private var accelerometer: Sensor? = null
+    private val tiltWindow = ArrayDeque<Direction>()
+    private var tiltBaseline: Direction? = null
+    private var tiltDeg = 0.0
 
     /**
      * Ustawia tekst tylko przy realnej zmianie. Bez tego każde odświeżenie napisu
@@ -79,6 +97,8 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         store = Store(this)
+        sensors = getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        accelerometer = sensors?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         engine = ScaleEngine(store.loadCalibration(Tool.FINGER))
         displayUnit = store.displayUnit
 
@@ -105,15 +125,47 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         running = true
         Choreographer.getInstance().postFrameCallback(frame)
+        accelerometer?.let { sensors?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     override fun onPause() {
         super.onPause()
         running = false
         Choreographer.getInstance().removeFrameCallback(frame)
+        sensors?.unregisterListener(this)
     }
 
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    override fun onSensorChanged(event: SensorEvent) {
+        if (event.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
+        tiltWindow.addLast(
+            Direction(event.values[0].toDouble(), event.values[1].toDouble(), event.values[2].toDouble())
+        )
+        while (tiltWindow.size > TILT_WINDOW) tiltWindow.removeFirst()
+
+        val mean = TiltAnalyzer.meanDirection(tiltWindow.toList(), maxSpreadDeg = 2.0) ?: return
+        val base = tiltBaseline
+        if (base == null) {
+            tiltBaseline = mean          // pierwszy spokojny odczyt staje się odniesieniem
+            return
+        }
+        tiltDeg = base.angleTo(mean)
+    }
+
+    /** Ustawia bieżące położenie jako zero przechyłu. */
+    internal fun zeroTilt() {
+        tiltBaseline = TiltAnalyzer.meanDirection(tiltWindow.toList(), maxSpreadDeg = 2.0)
+        tiltDeg = 0.0
+    }
+
+    internal val liveTiltDeg: Double get() = tiltDeg
+
     private fun color(id: Int) = ContextCompat.getColor(this, id)
+
+    private fun tiltLine() = getString(
+        R.string.hint_tilt, String.format(Locale.US, "%.4f", tiltDeg)
+    )
     private fun dp(v: Float) = (v * resources.displayMetrics.density).toInt()
 
     private fun resolveColors() {
@@ -191,6 +243,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun doTare() {
         buzz(12)
+        zeroTilt()
         val taken = if (b.pan.sample().contacts > 0) engine.tareNow() else 0.0
         if (taken > 0) toast("Tara ${Fmt.pl(taken, 1)} g — waga liczy netto")
         else { engine.clearTare(); toast("Wyzerowano") }
@@ -241,7 +294,7 @@ class MainActivity : AppCompatActivity() {
         if (shown == null) {
             b.value.setTextIfChanged("0,0")
             b.value.setTextColor(colMuted)
-            b.alt.setTextIfChanged(getString(R.string.hint_object))
+            b.alt.setTextIfChanged(tiltLine())
         } else {
             b.value.setTextIfChanged(Fmt.pl(u.fromGrams(shown), displayUnit.decimals))
             if (shown > 0) lastMass = shown
@@ -258,7 +311,7 @@ class MainActivity : AppCompatActivity() {
             b.alt.setTextIfChanged(if (shown > 0) {
                 val base = "${Fmt.pl(alt.fromGrams(shown), 2)} ${alt.symbol}"
                 if (r.tare > 0) "$base  ·  netto" else base
-            } else getString(R.string.hint_object))
+            } else tiltLine())
         }
 
         b.sub.setTextIfChanged(when {

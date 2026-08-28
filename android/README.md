@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 81 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 84 testy, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.5.apk` (podpisany, minSdk 24).
+Gotowy plik do zainstalowania leży w `dist/waga-1.6.apk` (podpisany, minSdk 24).
 Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -79,6 +79,14 @@ bierny jest dla ekranu pojemnościowego niewidzialny.
 
 **Waga czujnikowa** (`SensorScaleActivity`) mierzy przedmiot **leżący** na
 telefonie, bez żadnego dotyku. Łączy dwa niezależne kanały:
+
+*Waga obsługuje się sama.* Pomiar wymaga nieruchomego telefonu, a każde
+dotknięcie go psuje — przyrząd, który każe naciskać przyciski w trakcie pomiaru,
+sam sobie przeczy. Dlatego: gdy rozrzut kierunku grawitacji spada poniżej 0,15°
+na ponad dwie sekundy, waga zeruje się samoczynnie; gdy wskazanie ustali się na
+nowym poziomie na półtorej sekundy, zatrzymuje je i sygnalizuje wibracją. Rozrzut
+jest pokazywany na bieżąco, więc widać, czy telefon naprawdę leży — telefon
+trzymany w dłoni daje kilka stopni, a szukamy setnych części stopnia.
 
 *Odczyt jest ciągły.* Akcelerometr chodzi przez cały czas, gdy ekran czujnikowy
 jest otwarty, a wskazanie liczone jest z ruchomego okna ostatnich ~3 s i

@@ -217,4 +217,39 @@ class SensorScaleActivityTest {
         idle(200)
         assertEquals("nie zmierzono", a.findViewById<TextView>(R.id.stateZero).text.toString())
     }
+
+    @Test
+    fun `waga zeruje sie sama gdy telefon lezy nieruchomo`() {
+        val a = launch()
+        // odstawiony telefon: mały rozrzut przez ponad dwie sekundy
+        repeat(12) { feedResting(a, 0.0, n = 60, noise = 0.002) }
+        assertTrue("po odstawieniu waga ma się wyzerować bez pytania",
+            a.findViewById<TextView>(R.id.status).text.toString().contains("samoczynnie"))
+        assertEquals("zmierzony · rezonans brak",
+            a.findViewById<TextView>(R.id.stateZero).text.toString())
+    }
+
+    @Test
+    fun `trzymany w rece telefon nie zeruje sie sam`() {
+        val a = launch()
+        // rozrzut jak przy trzymaniu w dłoni — kilka stopni
+        repeat(12) { feedResting(a, 0.0, n = 60, noise = 0.35) }
+        val status = a.findViewById<TextView>(R.id.status).text.toString()
+        assertFalse("drgający telefon nie może uchodzić za odstawiony",
+            status.contains("samoczynnie"))
+        assertTrue("aplikacja musi powiedzieć, że telefon się rusza",
+            a.findViewById<TextView>(R.id.live).text.toString().contains("RUSZA"))
+    }
+
+    @Test
+    fun `wskazanie ustala sie samo po polozeniu przedmiotu`() {
+        val a = launch()
+        repeat(12) { feedResting(a, 0.0, n = 60, noise = 0.002) }   // samoczynne zero
+
+        // kładziemy przedmiot i zostawiamy
+        repeat(14) { feedResting(a, 0.28, n = 60, noise = 0.002) }
+        val status = a.findViewById<TextView>(R.id.status).text.toString()
+        assertTrue("wskazanie ma ustalić się samo: $status", status.contains("ustalone"))
+        assertTrue(status.contains("0.28") || status.contains("0.27") || status.contains("0.29"))
+    }
 }

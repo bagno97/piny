@@ -46,6 +46,15 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         const val LIVE_WINDOW = 160
         const val LIVE_REFRESH_MS = 200L
         const val LIVE_MIN_SAMPLES = 48
+
+        /** Poniżej tego rozrzutu telefon uznajemy za nieruchomy. */
+        const val STILL_SPREAD_DEG = 0.15
+        /** Tyle musi leżeć spokojnie, zanim waga wyzeruje się sama. */
+        const val AUTO_ZERO_MS = 2000L
+        /** Tyle musi trwać nowy poziom, zanim zostanie zatrzymany jako wynik. */
+        const val SETTLE_MS = 1500L
+        /** Zmiana przechyłu, od której uznajemy, że coś położono lub zdjęto. */
+        const val CHANGE_DEG = 0.015
         private const val NANOS = 1_000_000_000.0
     }
 
@@ -71,6 +80,10 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
     private val liveWindow = ArrayDeque<Direction>()
     private var liveTiltDeg = 0.0
     private var liveMass = 0.0
+    private var stillSince = 0L
+    private var settleSince = 0L
+    private var settleValue = 0.0
+    private var latched: Double? = null
 
     private val liveTicker = object : Runnable {
         override fun run() {
@@ -136,22 +149,72 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         sensors.unregisterListener(this)
     }
 
-    /** Przelicza okno na kąt i masę; wołane co [LIVE_REFRESH_MS]. */
+    /**
+     * Odczyt na żywo, wołany co [LIVE_REFRESH_MS].
+     *
+     * Waga obsługuje się sama: gdy telefon poleży spokojnie, zeruje się bez pytania,
+     * a gdy wskazanie ustali się na nowym poziomie, zatrzymuje je i sygnalizuje
+     * wibracją. Dzięki temu nie trzeba dotykać telefonu w trakcie pomiaru — a każde
+     * dotknięcie i tak psuło wynik.
+     */
     private fun updateLive() {
         if (phase != Phase.IDLE) return
-        val base = baseline ?: return
         if (liveWindow.size < LIVE_MIN_SAMPLES) return
 
         val samplesNow = liveWindow.toList()
-        val mean = TiltAnalyzer.meanDirection(samplesNow, maxSpreadDeg = 2.0) ?: return
+        val spread = TiltAnalyzer.spreadDeg(samplesNow)
+        val now = android.os.SystemClock.uptimeMillis()
+        val still = spread < STILL_SPREAD_DEG
+
+        b.live.text = getString(
+            if (still) R.string.sen_live_still else R.string.sen_live_moving,
+            String.format(Locale.US, "%.3f", spread)
+        )
+
+        if (!still) {
+            stillSince = 0L
+            settleSince = 0L
+            return
+        }
+        if (stillSince == 0L) stillSince = now
+
+        val mean = TiltAnalyzer.meanDirection(samplesNow, maxSpreadDeg = STILL_SPREAD_DEG * 2) ?: return
+
+        // samoczynne zero: telefon odstawiony i nieruchomy
+        val base = baseline
+        if (base == null) {
+            if (now - stillSince > AUTO_ZERO_MS) {
+                baseline = mean
+                store.baselineTilt = mean
+                buzz(20)
+                b.status.setText(R.string.sen_auto_zero)
+                paintState()
+            }
+            return
+        }
+
         liveTiltDeg = base.angleTo(mean)
         liveMass = model?.mass(liveTiltDeg, 0.0) ?: 0.0
-
         b.channelTilt.text = getString(R.string.sen_tilt_value, String.format(Locale.US, "%.4f", liveTiltDeg))
         if (model != null) b.mass.text = Fmt.pl(liveMass, 1)
-        b.live.text = getString(
-            if (TiltAnalyzer.spreadDeg(samplesNow) > 0.4) R.string.sen_live_unstable else R.string.sen_live_ok
-        )
+
+        // zatrzymanie wyniku po ustaleniu się nowego poziomu
+        if (kotlin.math.abs(liveTiltDeg - settleValue) > CHANGE_DEG) {
+            settleValue = liveTiltDeg
+            settleSince = now
+            return
+        }
+        if (settleSince != 0L && now - settleSince > SETTLE_MS && latched != liveTiltDeg) {
+            latched = liveTiltDeg
+            if (liveTiltDeg > CHANGE_DEG) {
+                buzz(25)
+                b.status.text = getString(
+                    R.string.sen_settled,
+                    String.format(Locale.US, "%.4f", liveTiltDeg),
+                    if (model != null) Fmt.pl(liveMass, 1) else "—"
+                )
+            }
+        }
     }
 
     // ── zbieranie danych z czujników ────────────────────────────────────────
