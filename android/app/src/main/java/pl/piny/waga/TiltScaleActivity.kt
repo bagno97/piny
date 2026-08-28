@@ -107,7 +107,9 @@ class TiltScaleActivity : AppCompatActivity(), SensorEventListener {
         baseline = store.baselineTilt
         gramsPerDegree = store.gramsPerDegree
 
-        b.back.setOnClickListener { finish() }
+        b.back.setOnClickListener {
+            startActivity(android.content.Intent(this, MainActivity::class.java))
+        }
         b.zero.setOnClickListener { zeroNow() }
         b.calibrate.setOnClickListener { armCalibration() }
         b.forget.setOnClickListener { forgetCalibration() }

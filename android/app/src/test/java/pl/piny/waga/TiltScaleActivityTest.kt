@@ -72,9 +72,11 @@ class TiltScaleActivityTest {
     fun `startuje bez kalibracji i mowi co robic`() {
         val a = launch()
         assertFalse(a.isCalibrated)
-        assertTrue(status(a).contains("ODSTAW TELEFON"))
-        assertEquals("brak przelicznika — waga pokazuje stopnie",
-            a.findViewById<TextView>(R.id.calibrationState).text.toString())
+        assertTrue("ekran startowy ma mówić, co zrobić: ${status(a)}",
+            status(a).contains("ręczniku") || status(a).contains("gąbce"))
+        assertTrue(a.findViewById<TextView>(R.id.calibrationState).text.toString().contains("stopnie"))
+        assertEquals("bez przelicznika pokazujemy stopnie", "°",
+            a.findViewById<TextView>(R.id.unit).text.toString())
     }
 
     @Test
@@ -82,7 +84,8 @@ class TiltScaleActivityTest {
         val a = launch()
         autoZero(a)
         assertTrue(a.hasZero)
-        assertTrue(status(a).contains("samoczynnie"))
+        assertTrue("po wyzerowaniu waga mówi, co dalej: ${status(a)}",
+            status(a).contains("Połóż"))
     }
 
     @Test
@@ -117,7 +120,8 @@ class TiltScaleActivityTest {
 
         a.findViewById<EditText>(R.id.referenceMass).setText("6,54")
         a.findViewById<TextView>(R.id.calibrate).performClick()
-        assertTrue("waga ma czekać na wzorzec", status(a).contains("Czekam"))
+        assertTrue("waga ma czekać na wzorzec",
+            a.findViewById<TextView>(R.id.calibrationState).text.toString().contains("czekam"))
 
         // kładziemy monetę i cofamy ręce — reszta dzieje się sama
         repeat(10) { rest(a, 0.40) }
@@ -142,7 +146,8 @@ class TiltScaleActivityTest {
         a.findViewById<TextView>(R.id.calibrate).performClick()
         repeat(20) { rest(a, 0.0) }          // wzorzec nic nie ugiął
         assertFalse(a.isCalibrated)
-        assertTrue(status(a).contains("za mały"))
+        assertTrue("waga musi zgłosić brak reakcji: ${status(a)}",
+            status(a).contains("Nic nie drgnęło"))
     }
 
     @Test

@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-2.0.apk` (podpisany, minSdk 24).
+Gotowy plik do zainstalowania leży w `dist/waga-2.1.apk` (podpisany, minSdk 24).
 Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -75,7 +75,7 @@ przewodzącego, więc mierzy to, co naciska palec albo rysik. Przedmiot bierny �
 kamień, odważnik — jest dla ekranu pojemnościowego niewidzialny i żadna sztuczka
 tego nie obejdzie.
 
-**Waga przechyłowa** (`TiltScaleActivity`) waży przedmiot **leżący** na
+**Waga przechyłowa** (`TiltScaleActivity`) jest ekranem startowym i waży przedmiot **leżący** na
 telefonie. Telefon na miękkim podłożu ugina je nierównomiernie, gdy przedmiot
 leży poza środkiem; kierunek grawitacji obraca się o kąt proporcjonalny do
 momentu siły, czyli do masy. Kąt czytamy jako uśredniony wektor z akcelerometru —

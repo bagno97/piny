@@ -16,7 +16,7 @@
         android:theme="@style/Theme.Waga">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".TiltScaleActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode">
@@ -27,10 +27,11 @@
         </activity>
 
         <activity
-            android:name=".TiltScaleActivity"
+            android:name=".MainActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName=".TiltScaleActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode" />
+
     </application>
 </manifest>

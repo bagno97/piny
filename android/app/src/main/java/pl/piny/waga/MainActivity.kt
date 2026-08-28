@@ -197,9 +197,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         b.tools.addView(tool("◎", getString(R.string.tool_tare), primary = true) { doTare() })
         b.tools.addView(tool("◆", getString(R.string.tool_calibration)) { showCalibration() })
         b.tools.addView(tool("◇", getString(R.string.tool_converter)) { showConverter() })
-        b.tools.addView(tool("∿", getString(R.string.tilt_open)) {
-            startActivity(android.content.Intent(this, TiltScaleActivity::class.java))
-        })
+        b.tools.addView(tool("⇄", displayUnit.label) { cycleUnit() })
         b.tools.addView(tool("≡", getString(R.string.tool_history)) { showHistory() })
     }
 

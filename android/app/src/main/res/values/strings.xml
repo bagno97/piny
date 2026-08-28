@@ -42,42 +42,42 @@
 
 
     <!-- waga przechyłowa -->
-    <string name="tilt_title">Waga przechyłowa</string>
-    <string name="tilt_back">‹ Wróć</string>
+    <string name="tilt_title">Waga</string>
+    <string name="tilt_open_press">nacisk palcem ›</string>
     <string name="tilt_open">Przechył</string>
     <string name="tilt_zero_deg">0,0000</string>
     <string name="tilt_unit_deg">°</string>
 
-    <string name="tilt_status_start">ODSTAW TELEFON NA COŚ MIĘKKIEGO I NIE DOTYKAJ GO.\n\nZłożony ręcznik, gąbka albo cienka pianka. Waga wyzeruje się sama, gdy wykryje, że telefon leży nieruchomo. Potem połóż przedmiot przy krawędzi ekranu — im dalej od środka, tym większy przechył.</string>
+    <string name="tilt_status_start">Połóż telefon na złożonym ręczniku albo gąbce i cofnij ręce. Waga wyzeruje się sama.</string>
     <string name="tilt_waiting">czekam na spokój</string>
     <string name="tilt_still">spokój %1$s° · nieruchomy</string>
     <string name="tilt_moving">spokój %1$s° · TELEFON SIĘ RUSZA</string>
 
-    <string name="tilt_detail_raw">stopnie · bez kalibracji nie ma gramów</string>
+    <string name="tilt_detail_raw">stopnie przechyłu</string>
     <string name="tilt_detail_calibrated">%1$s°  ·  %2$s ct</string>
 
-    <string name="tilt_auto_zero">Telefon leży spokojnie — wyzerowano samoczynnie. Połóż przedmiot i cofnij ręce.</string>
-    <string name="tilt_settled">Wskazanie ustalone: %1$s g.</string>
-    <string name="tilt_settled_raw">Wskazanie ustalone: %1$s°. Żeby zobaczyć gramy, pokaż wadze raz przedmiot o znanej masie.</string>
+    <string name="tilt_auto_zero">Gotowe. Połóż przedmiot przy krawędzi ekranu i cofnij ręce.</string>
+    <string name="tilt_settled">%1$s g</string>
+    <string name="tilt_settled_raw">Przechył %1$s°. Żeby zobaczyć gramy, pokaż wadze raz monetę — na dole ekranu.</string>
     <string name="tilt_zeroed">Wyzerowano.</string>
-    <string name="tilt_unstable">Telefon się rusza — odstaw go i spróbuj ponownie.</string>
+    <string name="tilt_unstable">Telefon się rusza — odstaw go.</string>
 
-    <string name="tilt_section_calibration">Przelicznik na gramy · raz na zawsze</string>
-    <string name="tilt_calibration_help">Sam kąt nie niesie jednostki — przelicznik zależy od sztywności podłoża i miejsca położenia. Pokaż wadze raz przedmiot o znanej masie, a zapamięta go na stałe. Monety obiegowe: 5 zł = 6,54 g · 2 zł = 5,21 g · 1 zł = 5,00 g · 50 gr = 3,94 g · 20 gr = 3,22 g · 10 gr = 2,51 g.\n\nUWAGA: po wpisaniu masy naciśnij przycisk, a DOPIERO POTEM połóż wzorzec i cofnij ręce. Waga zapisze go sama.</string>
+    <string name="tilt_section_calibration">Przelicznik na gramy</string>
+    <string name="tilt_calibration_help">Raz w życiu. Naciśnij przycisk, potem połóż monetę 5 zł i cofnij ręce — waga zapamięta przelicznik na stałe.\n\nInne monety: 2 zł = 5,21 g · 1 zł = 5,00 g · 50 gr = 3,94 g · 20 gr = 3,22 g.</string>
     <string name="tilt_hint_mass">Masa wzorca w gramach</string>
     <string name="tilt_default_mass">6,54</string>
 
     <string name="tilt_btn_zero">Zeruj teraz</string>
-    <string name="tilt_btn_calibrate">Czekaj na wzorzec</string>
-    <string name="tilt_btn_forget">Zapomnij przelicznik</string>
+    <string name="tilt_btn_calibrate">Ustaw</string>
+    <string name="tilt_btn_forget">Ustaw od nowa</string>
 
-    <string name="tilt_state_none">brak przelicznika — waga pokazuje stopnie</string>
-    <string name="tilt_state_ready">przelicznik %1$s g na stopień</string>
-    <string name="tilt_state_awaiting">czekam na położenie wzorca…</string>
+    <string name="tilt_state_none">jeszcze nieustawiony — waga pokazuje stopnie</string>
+    <string name="tilt_state_ready">ustawiony · %1$s g na stopień</string>
+    <string name="tilt_state_awaiting">czekam na monetę…</string>
 
-    <string name="tilt_awaiting">Czekam na wzorzec %1$s g. Połóż go przy krawędzi i COFNIJ RĘCE — zapiszę go sam.</string>
-    <string name="tilt_calibrated">Zapamiętano: %1$s g dało przechył %2$s°, czyli %3$s g na stopień. Od teraz waga pokazuje gramy.</string>
-    <string name="tilt_too_small">Przechył %1$s° jest za mały. Połóż wzorzec dalej od środka albo użyj bardziej sprężystego podłoża.</string>
+    <string name="tilt_awaiting">Połóż teraz %1$s g przy krawędzi i cofnij ręce.</string>
+    <string name="tilt_calibrated">Zapamiętane. Waga pokazuje gramy.</string>
+    <string name="tilt_too_small">Nic nie drgnęło. Połóż monetę dalej od środka albo daj pod telefon coś bardziej sprężystego.</string>
     <string name="tilt_forgotten">Przelicznik skasowany — waga wróciła do stopni.</string>
     <string name="tilt_need_zero">Poczekaj, aż waga się wyzeruje.</string>
     <string name="tilt_need_mass">Podaj masę wzorca w gramach.</string>
