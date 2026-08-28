@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 88 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 68 testów, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.7.apk` (podpisany, minSdk 24).
+Gotowy plik do zainstalowania leży w `dist/waga-2.0.apk` (podpisany, minSdk 24).
 Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -65,92 +65,53 @@ bez emulatora.
 | `PanView.kt` | odczyt `MotionEvent`, wybór kanału, rysowanie pola pomiarowego |
 | `Store.kt` | profile kalibracji (osobno palec i rysik) oraz dziennik |
 | `MainActivity.kt` | pętla 60 Hz, interfejs, arkusze |
-| `Fft.kt` | przekształcenie Fouriera o podstawie 2, okno Hanna |
-| `Resonance.kt` | szczyt widma i przeliczenie częstotliwości na masę |
-| `Tilt.kt` | uśredniony kierunek grawitacji i przeliczenie przechyłu na masę |
-| `Fusion.kt` | regresja liniowa łącząca kanały czujników |
-| `SensorScaleActivity.kt` | waga czujnikowa: przechył, rezonans, obecność |
+| `Tilt.kt` | uśredniony kierunek grawitacji i ocena spokoju |
+| `TiltScaleActivity.kt` | waga przechyłowa: zero, odczyt na żywo, jeden wzorzec |
 
-## Dwie niezależne metody pomiaru
+## Dwie metody, każda o jednym zadaniu
 
 **Waga ekranowa** czyta nacisk z ekranu dotykowego. Wymaga kontaktu
-przewodzącego, więc mierzy tylko to, co naciska palec albo rysik. Przedmiot
-bierny jest dla ekranu pojemnościowego niewidzialny.
+przewodzącego, więc mierzy to, co naciska palec albo rysik. Przedmiot bierny —
+kamień, odważnik — jest dla ekranu pojemnościowego niewidzialny i żadna sztuczka
+tego nie obejdzie.
 
-**Waga czujnikowa** (`SensorScaleActivity`) mierzy przedmiot **leżący** na
-telefonie, bez żadnego dotyku. Łączy dwa niezależne kanały:
+**Waga przechyłowa** (`TiltScaleActivity`) waży przedmiot **leżący** na
+telefonie. Telefon na miękkim podłożu ugina je nierównomiernie, gdy przedmiot
+leży poza środkiem; kierunek grawitacji obraca się o kąt proporcjonalny do
+momentu siły, czyli do masy. Kąt czytamy jako uśredniony wektor z akcelerometru —
+przy kilkuset próbkach szum maleje z pierwiastkiem ich liczby, więc wykrywalne są
+setne części stopnia.
 
-*Kalibracja jest opcjonalna, bo odważnik jest wbudowany.* Masa telefonu jest
-znana z katalogu (`PhoneMass`, rozpoznanie po `Build.MODEL`; Galaxy A35 5G to
-209 g). Z f₀ = (1/2π)·√(k/M₀) przy znanym M₀ wynika C = M₀·f₀², a stąd każda
-dołożona masa liczy się bezwzględnie: m = C/f² − M₀. Żaden wzorzec nie jest
-potrzebny.
+Waga obsługuje się sama: gdy rozrzut kierunku grawitacji spadnie poniżej 0,15°
+na ponad dwie sekundy, zeruje się bez pytania; gdy wskazanie ustali się na nowym
+poziomie na półtorej sekundy, potwierdza je wibracją. Rozrzut jest pokazywany na
+bieżąco — telefon trzymany w dłoni daje kilka stopni, a szukamy setnych.
 
-Pierwszy zważony przedmiot nadaje przy okazji skalę szybkiemu kanałowi
-przechyłowemu (gramy na stopień), więc kolejne odczyty są natychmiastowe — bez
-czekania na pobudzenie układu. Wzorzec o znanej masie pozostaje sposobem na
-uściślenie, a nie warunkiem działania; dokładność bezwzorcową ogranicza to, że
-podłoże wnosi własną masę zastępczą.
+### Dlaczego jeden wzorzec jest konieczny
 
-*Waga obsługuje się sama.* Pomiar wymaga nieruchomego telefonu, a każde
-dotknięcie go psuje — przyrząd, który każe naciskać przyciski w trakcie pomiaru,
-sam sobie przeczy. Dlatego: gdy rozrzut kierunku grawitacji spada poniżej 0,15°
-na ponad dwie sekundy, waga zeruje się samoczynnie; gdy wskazanie ustali się na
-nowym poziomie na półtorej sekundy, zatrzymuje je i sygnalizuje wibracją. Rozrzut
-jest pokazywany na bieżąco, więc widać, czy telefon naprawdę leży — telefon
-trzymany w dłoni daje kilka stopni, a szukamy setnych części stopnia.
+Kąt nie niesie jednostki: przelicznik zależy od sztywności podłoża i miejsca
+położenia przedmiotu. Odchylenie bez skali nie da się zamienić na gramy — to nie
+kwestia wysiłku, tylko braku informacji. Dlatego raz trzeba pokazać wadze
+przedmiot o znanej masie (moneta 5 zł to 6,54 g); przelicznik zapisuje się na
+stałe i kolejne pomiary są natychmiastowe.
 
-*Odczyt jest ciągły.* Akcelerometr chodzi przez cały czas, gdy ekran czujnikowy
-jest otwarty, a wskazanie liczone jest z ruchomego okna ostatnich ~3 s i
-odświeżane pięć razy na sekundę. Położenie przedmiotu podnosi liczbę, która
-zostaje, dopóki przedmiot leży — waga nie mierzy w zrywach na żądanie.
-Przycisk „Zeruj teraz" ustawia punkt odniesienia w bieżącym położeniu.
+Kalibracja też nie wymaga dotykania telefonu: przycisk jedynie uzbraja
+oczekiwanie, a wzorzec zapisuje się sam, gdy waga zobaczy spokój i ustalony
+przechył.
 
-*Przechył.* Przedmiot położony poza środkiem ugina miękkie podłoże
-nierównomiernie i obraca telefon o kąt proporcjonalny do momentu siły, czyli do
-masy. Kierunek grawitacji wyznacza uśredniony wektor z akcelerometru — przy 400
-próbkach szum maleje z pierwiastkiem ich liczby, więc wykrywalne są setne części
-stopnia. Sygnał jest **statyczny**: trwa, dopóki przedmiot leży, więc odczyt nie
-znika po odjęciu ręki. Zapis, w którym telefon był poruszany (rozrzut powyżej
-0,6°), jest odrzucany.
+### Czego próbowałem i co odrzuciłem
 
-*Rezonans.* Telefon na miękkim podłożu jest układem masa–sprężyna: po impulsie
-wibracji drga z częstotliwością f = (1/2π)·√(k/M), a dołożona masa ją obniża.
-Sygnał z akcelerometru (~400 Hz) przechodzi przez okno Hanna i FFT o podstawie 2,
-a szczyt widma jest doprecyzowany interpolacją paraboliczną. Szczyt musi wystawać
-trzykrotnie ponad tło, inaczej pomiar jest odrzucany jako szum.
-
-*Czujnik zbliżeniowy* potwierdza, że coś na telefonie leży — nie wchodzi do
-obliczeń, ale odróżnia pusty telefon od obciążonego.
-
-*Łączenie kanałów.* Model uczy się na wzorcach o znanej masie — regresja liniowa
-z regularyzacją grzbietową, a nie sieć neuronowa: przy kilku wzorcach tylko ona
-się nie przeucza, a jej współczynniki da się obejrzeć. Trzy wzorce i więcej
-uruchamiają oba kanały naraz; przy mniejszej liczbie model schodzi do prostej
-proporcji na tym kanale, który dał wyraźniejszy sygnał.
-
-Zasięg metody rezonansowej dla telefonu ~200 g przy 40 Hz i niepewności 0,05 Hz:
-
-| masa | spadek częstotliwości | wynik |
-|------|----------------------|-------|
-| 0,4 g (2 karaty) | 0,04 Hz | ginie w szumie |
-| 1 g | 0,10 Hz | na granicy |
-| 5 g | 0,49 Hz | mierzalne |
-| 20 g | 1,86 Hz | pewnie |
-| 100 g | 7,34 Hz | pewnie |
-
-Kanał przechyłowy bywa czulszy, bo jego rozdzielczość zależy od miękkości
-podłoża i odległości przedmiotu od środka — im dalej od środka, tym większy
-przechył. Aplikacja podaje zmierzony przechył i spadek częstotliwości przy
-każdym wzorcu, więc widać, który kanał niesie sygnał.
-
-## Czego nie da się użyć
+Wcześniejsze wersje dokładały kolejne kanały: rezonans (masa dołożona do telefonu
+na miękkim podłożu obniża częstotliwość drgań własnych), pole styku, czujnik
+zbliżeniowy, regresję łączącą kanały. Na prawdziwym urządzeniu odezwał się
+wyłącznie kanał przechyłowy — rezonans ani razu nie znalazł szczytu widma.
+Zamiast utrzymywać martwy kod, wszystko poza działającym kanałem zostało
+usunięte; historia jest w gicie.
 
 Czytnik linii papilarnych pod ekranem jest optyczny i teoretycznie reaguje na
-ugięcie szkła, ale Android udostępnia go wyłącznie przez `BiometricPrompt`,
-który zwraca wynik uwierzytelnienia — nie ma API do surowego obrazu ani sygnału.
-Żyroskop mierzy prędkość kątową, więc przy nieruchomym telefonie nie niesie
-informacji; kierunek grawitacji z akcelerometru daje to samo lepiej.
+ugięcie szkła, ale Android udostępnia go wyłącznie przez `BiometricPrompt`, który
+zwraca wynik uwierzytelnienia — nie ma API do surowego sygnału. Żyroskop mierzy
+prędkość kątową, więc przy nieruchomym telefonie nie niesie informacji.
 
 ## Skala sterownika nie jest znana z góry
 

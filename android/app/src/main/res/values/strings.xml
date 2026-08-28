@@ -40,74 +40,46 @@
     <string name="close">Zamknij</string>
 
 
-    <!-- waga czujnikowa -->
-    <string name="sen_title">Waga czujnikowa</string>
-    <string name="sen_back">‹ Wróć</string>
-    <string name="sen_open">Czujniki</string>
-    <string name="sen_intro">ODSTAW TELEFON I NIE DOTYKAJ GO. Trzymany w ręce daje rozrzut kilku stopni, a szukamy setnych części stopnia — wtedy nic nie zadziała.\n\nPołóż telefon na złożonym ręczniku, gąbce albo piance i zostaw. Waga wyzeruje się sama, gdy tylko wykryje, że telefon leży nieruchomo. Potem połóż przedmiot przy krawędzi ekranu — wskazanie ustali się samo i telefon zawibruje. Używa dwóch niezależnych kanałów: przechyłu (przedmiot poza środkiem ugina podłoże i obraca telefon — odczyt trwa, dopóki przedmiot leży) oraz rezonansu (dołożona masa obniża częstotliwość drgań własnych).
 
-Połóż telefon na złożonym ręczniku, gąbce albo piance. Przedmiot kładź zawsze w TYM SAMYM miejscu, najlepiej przy krawędzi — im dalej od środka, tym większy przechył. Podczas pomiaru nie dotykaj telefonu.</string>
-    <string name="sen_status_start">Zacznij od kroku 1: zmierz pusty telefon.</string>
+    <!-- waga przechyłowa -->
+    <string name="tilt_title">Waga przechyłowa</string>
+    <string name="tilt_back">‹ Wróć</string>
+    <string name="tilt_open">Przechył</string>
+    <string name="tilt_zero_deg">0,0000</string>
+    <string name="tilt_unit_deg">°</string>
 
-    <string name="sen_step_1">Krok 1 · pusty telefon</string>
-    <string name="sen_step_2">Krok 2 · wzorce o znanej masie</string>
-    <string name="sen_step_3">Krok 3 · ważenie</string>
+    <string name="tilt_status_start">ODSTAW TELEFON NA COŚ MIĘKKIEGO I NIE DOTYKAJ GO.\n\nZłożony ręcznik, gąbka albo cienka pianka. Waga wyzeruje się sama, gdy wykryje, że telefon leży nieruchomo. Potem połóż przedmiot przy krawędzi ekranu — im dalej od środka, tym większy przechył.</string>
+    <string name="tilt_waiting">czekam na spokój</string>
+    <string name="tilt_still">spokój %1$s° · nieruchomy</string>
+    <string name="tilt_moving">spokój %1$s° · TELEFON SIĘ RUSZA</string>
 
-    <string name="sen_btn_zero">Zmierz pusty telefon (z rezonansem)</string>
-    <string name="sen_btn_tare">Zeruj teraz</string>
-    <string name="sen_live_waiting">odczyt na żywo: czekam na punkt zerowy</string>
-    <string name="sen_live_still">spokój %1$s° · nieruchomy</string>
-    <string name="sen_live_moving">spokój %1$s° · TELEFON SIĘ RUSZA</string>
-    <string name="sen_auto_zero">Telefon leży spokojnie — wyzerowano samoczynnie. Teraz połóż przedmiot i nie dotykaj telefonu.</string>
-    <string name="sen_settled">Wskazanie ustalone: przechył %1$s°, masa %2$s g.</string>
-    <string name="sen_settled_uncalibrated">Wskazanie ustalone: przechył %1$s°. Żeby zamienić stopnie na gramy, dodaj wzorzec o znanej masie (krok 2).</string>
-    <string name="sen_awaiting_reference">Czekam na wzorzec %1$s g. Połóż go przy krawędzi i COFNIJ RĘCE — zapiszę go sam, gdy telefon się uspokoi.</string>
-    <string name="sen_reference_too_small">Przechył %1$s° jest za mały, żeby uznać go za wzorzec. Połóż go dalej od środka albo użyj bardziej miękkiego podłoża.</string>
-    <string name="sen_auto_resonance">Mierzę drgania własne telefonu… nie dotykaj go.</string>
-    <string name="sen_auto_weighing">Coś leży — ważę bezwzględnie… nie dotykaj telefonu.</string>
-    <string name="sen_ready">Gotowe. Drgania własne %1$s Hz przy masie telefonu %2$s g — waga liczy w gramach bez wzorca. Połóż przedmiot.</string>
-    <string name="sen_auto_done">Zważono %1$s g. Od teraz odczyt jest natychmiastowy.</string>
-    <string name="sen_resonance_failed">Nie znalazłem drgań własnych. Podłoże jest za twarde albo za miękkie — spróbuj złożonego ręcznika, gąbki lub cienkiej pianki.</string>
-    <string name="sen_object_too_light">Przedmiot za lekki dla kanału rezonansowego. Dodaj wzorzec o znanej masie (krok 2), żeby wyskalować szybki kanał przechyłowy.</string>
-    <string name="sen_need_reference">Najpierw dodaj wzorzec o znanej masie (krok 2).</string>
-    <string name="sen_nothing_on_phone">Wskazanie jest zerowe — nic nie leży na telefonie.</string>
-    <string name="sen_saved">Zapisano %1$s g w dzienniku.</string>
-    <string name="sen_tare_done">Wyzerowano w tym położeniu.</string>
-    <string name="sen_tare_unstable">Telefon się rusza — odstaw go i spróbuj ponownie.</string>
-    <string name="sen_btn_reference">Czekaj na wzorzec</string>
-    <string name="sen_btn_weigh">Zapisz odczyt do dziennika</string>
-    <string name="sen_btn_reset">Skasuj kalibrację czujnikową</string>
+    <string name="tilt_detail_raw">stopnie · bez kalibracji nie ma gramów</string>
+    <string name="tilt_detail_calibrated">%1$s°  ·  %2$s ct</string>
 
-    <string name="sen_hint_mass">Masa wzorca w gramach</string>
-    <string name="sen_default_mass">20,0</string>
+    <string name="tilt_auto_zero">Telefon leży spokojnie — wyzerowano samoczynnie. Połóż przedmiot i cofnij ręce.</string>
+    <string name="tilt_settled">Wskazanie ustalone: %1$s g.</string>
+    <string name="tilt_settled_raw">Wskazanie ustalone: %1$s°. Żeby zobaczyć gramy, pokaż wadze raz przedmiot o znanej masie.</string>
+    <string name="tilt_zeroed">Wyzerowano.</string>
+    <string name="tilt_unstable">Telefon się rusza — odstaw go i spróbuj ponownie.</string>
 
-    <string name="sen_not_measured">nie zmierzono</string>
-    <string name="sen_zero_ready">zmierzony · rezonans %1$s</string>
-    <string name="sen_res_missing">brak</string>
-    <string name="sen_no_references">brak wzorców — dodaj co najmniej jeden</string>
-    <string name="sen_model_trained">model z %1$d wzorców · oba kanały</string>
-    <string name="sen_model_single">%1$d wzorzec · kanał: %2$s</string>
+    <string name="tilt_section_calibration">Przelicznik na gramy · raz na zawsze</string>
+    <string name="tilt_calibration_help">Sam kąt nie niesie jednostki — przelicznik zależy od sztywności podłoża i miejsca położenia. Pokaż wadze raz przedmiot o znanej masie, a zapamięta go na stałe. Monety obiegowe: 5 zł = 6,54 g · 2 zł = 5,21 g · 1 zł = 5,00 g · 50 gr = 3,94 g · 20 gr = 3,22 g · 10 gr = 2,51 g.\n\nUWAGA: po wpisaniu masy naciśnij przycisk, a DOPIERO POTEM połóż wzorzec i cofnij ręce. Waga zapisze go sama.</string>
+    <string name="tilt_hint_mass">Masa wzorca w gramach</string>
+    <string name="tilt_default_mass">6,54</string>
 
-    <string name="sen_tilt_none">przechył —</string>
-    <string name="sen_tilt_value">przechył %1$s°</string>
-    <string name="sen_res_none">rezonans —</string>
-    <string name="sen_res_value">rezonans %1$s Hz</string>
-    <string name="sen_presence_yes">czujnik zbliżeniowy: coś leży</string>
-    <string name="sen_presence_no">czujnik zbliżeniowy: brak wskazania</string>
+    <string name="tilt_btn_zero">Zeruj teraz</string>
+    <string name="tilt_btn_calibrate">Czekaj na wzorzec</string>
+    <string name="tilt_btn_forget">Zapomnij przelicznik</string>
 
-    <string name="sen_capturing_zero">Nie dotykaj telefonu… mierzę stan pusty.</string>
-    <string name="sen_capturing_reference">Wzorzec na telefonie, ręce z dala… mierzę.</string>
-    <string name="sen_capturing_object">Przedmiot na telefonie, ręce z dala… mierzę.</string>
+    <string name="tilt_state_none">brak przelicznika — waga pokazuje stopnie</string>
+    <string name="tilt_state_ready">przelicznik %1$s g na stopień</string>
+    <string name="tilt_state_awaiting">czekam na położenie wzorca…</string>
 
-    <string name="sen_zero_done">Zmierzono stan pusty (rezonans %1$s). Połóż wzorzec i wykonaj krok 2.</string>
-    <string name="sen_reference_added">Dodano wzorzec %1$s g: przechył %2$s°, spadek częstotliwości %3$s Hz.</string>
-    <string name="sen_weigh_done">Zważono. To %1$s ct.</string>
-    <string name="sen_reset_done">Kalibracja czujnikowa skasowana.</string>
-
-    <string name="sen_need_zero">Najpierw zmierz pusty telefon (krok 1).</string>
-    <string name="sen_need_mass">Podaj masę wzorca w gramach.</string>
-    <string name="sen_need_calibration">Najpierw wykonaj kroki 1 i 2.</string>
-    <string name="sen_unstable">Telefon się poruszał (rozrzut %1$s°). Odstaw go i nie dotykaj podczas pomiaru.</string>
-    <string name="sen_no_signal">Żaden kanał nic nie wykrył. Połóż przedmiot dalej od środka albo na bardziej miękkim podłożu.</string>
-    <string name="sen_no_accelerometer">Ten telefon nie udostępnia akcelerometru — waga czujnikowa jest niedostępna.</string>
+    <string name="tilt_awaiting">Czekam na wzorzec %1$s g. Połóż go przy krawędzi i COFNIJ RĘCE — zapiszę go sam.</string>
+    <string name="tilt_calibrated">Zapamiętano: %1$s g dało przechył %2$s°, czyli %3$s g na stopień. Od teraz waga pokazuje gramy.</string>
+    <string name="tilt_too_small">Przechył %1$s° jest za mały. Połóż wzorzec dalej od środka albo użyj bardziej sprężystego podłoża.</string>
+    <string name="tilt_forgotten">Przelicznik skasowany — waga wróciła do stopni.</string>
+    <string name="tilt_need_zero">Poczekaj, aż waga się wyzeruje.</string>
+    <string name="tilt_need_mass">Podaj masę wzorca w gramach.</string>
+    <string name="tilt_no_accelerometer">Ten telefon nie udostępnia akcelerometru — waga przechyłowa jest niedostępna.</string>
 </resources>

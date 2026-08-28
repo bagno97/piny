@@ -27,7 +27,7 @@
         </activity>
 
         <activity
-            android:name=".SensorScaleActivity"
+            android:name=".TiltScaleActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:parentActivityName=".MainActivity"

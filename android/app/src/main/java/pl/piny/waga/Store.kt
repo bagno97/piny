@@ -6,18 +6,36 @@ import org.json.JSONObject
 
 data class Measurement(val grams: Double, val at: Long)
 
-/** Ustawienia i dziennik w SharedPreferences; JSON tylko dla list. */
+/** Ustawienia obu wag i dziennik pomiarów. JSON tylko tam, gdzie trzeba listy. */
 class Store(context: Context) {
+
     private val prefs = context.getSharedPreferences("waga", Context.MODE_PRIVATE)
 
     companion object {
         private const val MAX_HISTORY = 50
     }
 
-    // Kalibracja jest osobna dla palca i dla rysika — to inne czujniki tej samej wagi.
+    // ── waga ekranowa ──────────────────────────────────────────────────────
+    // Kalibracja jest osobna dla palca i dla rysika — to inne charakterystyki
+    // tego samego czujnika.
+
     private fun zeroKey(tool: Tool) = "zero_${tool.key}"
     private fun pointsKey(tool: Tool) = "points_${tool.key}"
     private fun rangeKey(tool: Tool) = "range_${tool.key}"
+
+    var displayUnit: DisplayUnit
+        get() = runCatching { DisplayUnit.valueOf(prefs.getString("unit", "GRAMS")!!) }
+            .getOrDefault(DisplayUnit.GRAMS)
+        set(v) = prefs.edit().putString("unit", v.name).apply()
+
+    var channel: Channel
+        get() = runCatching { Channel.valueOf(prefs.getString("channel", "AUTO")!!) }
+            .getOrDefault(Channel.AUTO)
+        set(v) = prefs.edit().putString("channel", v.name).apply()
+
+    var calibratedAt: Long
+        get() = prefs.getLong("calAt", 0L)
+        set(v) = prefs.edit().putLong("calAt", v).apply()
 
     /**
      * Największy sygnał, jaki ekran oddał dla tego narzędzia. Na nim opiera się
@@ -34,20 +52,6 @@ class Store(context: Context) {
         prefs.edit().remove(rangeKey(tool)).apply()
     }
 
-    var displayUnit: DisplayUnit
-        get() = runCatching { DisplayUnit.valueOf(prefs.getString("unit", "GRAMS")!!) }
-            .getOrDefault(DisplayUnit.GRAMS)
-        set(v) = prefs.edit().putString("unit", v.name).apply()
-
-    var channel: Channel
-        get() = runCatching { Channel.valueOf(prefs.getString("channel", "AUTO")!!) }
-            .getOrDefault(Channel.AUTO)
-        set(v) = prefs.edit().putString("channel", v.name).apply()
-
-    var calibratedAt: Long
-        get() = prefs.getLong("calAt", 0L)
-        set(v) = prefs.edit().putLong("calAt", v).apply()
-
     private fun readPoints(tool: Tool): List<CalPoint> {
         val raw = prefs.getString(pointsKey(tool), "[]") ?: "[]"
         return runCatching {
@@ -59,26 +63,9 @@ class Store(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    var history: List<Measurement>
-        get() {
-            val raw = prefs.getString("history", "[]") ?: "[]"
-            return runCatching {
-                val arr = JSONArray(raw)
-                (0 until arr.length()).map {
-                    val o = arr.getJSONObject(it)
-                    Measurement(o.getDouble("g"), o.getLong("at"))
-                }
-            }.getOrDefault(emptyList())
-        }
-        set(v) {
-            val arr = JSONArray()
-            v.take(MAX_HISTORY).forEach { arr.put(JSONObject().put("g", it.grams).put("at", it.at)) }
-            prefs.edit().putString("history", arr.toString()).apply()
-        }
-
     /**
-     * Zapisany profil narzędzia albo krzywa wstępna, gdy użytkownik nic jeszcze nie
-     * kalibrował. Waga nigdy nie startuje w stanie „nic nie pokażę".
+     * Zapisany profil narzędzia albo krzywa wstępna, gdy użytkownik nic jeszcze
+     * nie kalibrował. Waga nigdy nie startuje w stanie „nic nie pokażę".
      */
     fun loadCalibration(tool: Tool): Calibration {
         val saved = readPoints(tool)
@@ -88,7 +75,9 @@ class Store(context: Context) {
 
     fun saveCalibration(tool: Tool, cal: Calibration) {
         val arr = JSONArray()
-        if (!cal.auto) cal.points.forEach { arr.put(JSONObject().put("raw", it.raw).put("g", it.grams)) }
+        if (!cal.auto) cal.points.forEach {
+            arr.put(JSONObject().put("raw", it.raw).put("g", it.grams))
+        }
         prefs.edit()
             .putFloat(zeroKey(tool), cal.zero.toFloat())
             .putString(pointsKey(tool), arr.toString())
@@ -96,37 +85,7 @@ class Store(context: Context) {
         if (!cal.auto) calibratedAt = System.currentTimeMillis()
     }
 
-    fun addMeasurement(grams: Double) {
-        history = listOf(Measurement(grams, System.currentTimeMillis())) + history
-    }
-
-    fun clearHistory() { history = emptyList() }
-
-    // ── waga rezonansowa ───────────────────────────────────────────────────
-
-    var resonanceEmptyHz: Double
-        get() = prefs.getFloat("res_empty", 0f).toDouble()
-        set(v) = prefs.edit().putFloat("res_empty", v.toFloat()).apply()
-
-    fun loadResonanceScale(): ResonanceScale? {
-        val empty = resonanceEmptyHz
-        val constant = prefs.getFloat("res_constant", 0f).toDouble()
-        if (empty <= 0 || constant <= 0) return null
-        return ResonanceScale(empty, constant)
-    }
-
-    fun saveResonanceScale(scale: ResonanceScale) {
-        prefs.edit()
-            .putFloat("res_empty", scale.emptyHz.toFloat())
-            .putFloat("res_constant", scale.constant.toFloat())
-            .apply()
-    }
-
-    fun clearResonanceScale() {
-        prefs.edit().remove("res_constant").apply()
-    }
-
-    // ── waga czujnikowa: punkt odniesienia i wzorce ────────────────────────
+    // ── waga przechyłowa ───────────────────────────────────────────────────
 
     /** Kierunek grawitacji przy pustym telefonie. */
     var baselineTilt: Direction?
@@ -146,45 +105,35 @@ class Store(context: Context) {
             e.apply()
         }
 
-    /** Częstotliwość drgań własnych pustego telefonu. */
-    var baselineHz: Double
-        get() = prefs.getFloat("base_hz", 0f).toDouble()
-        set(v) = prefs.edit().putFloat("base_hz", v.toFloat()).apply()
+    /** Ile gramów przypada na stopień przechyłu; zero oznacza brak przelicznika. */
+    var gramsPerDegree: Double
+        get() = prefs.getFloat("g_per_deg", 0f).toDouble()
+        set(v) = prefs.edit().putFloat("g_per_deg", v.toFloat()).apply()
 
-    /** Wzorce zebrane do nauki modelu: przechył, spadek częstotliwości, masa. */
-    var sensorSamples: List<SensorSample>
+    // ── dziennik ───────────────────────────────────────────────────────────
+
+    var history: List<Measurement>
         get() {
-            val raw = prefs.getString("sensor_samples", "[]") ?: "[]"
+            val raw = prefs.getString("history", "[]") ?: "[]"
             return runCatching {
                 val arr = JSONArray(raw)
                 (0 until arr.length()).map {
                     val o = arr.getJSONObject(it)
-                    SensorSample(o.getDouble("tilt"), o.getDouble("drop"), o.getDouble("g"))
+                    Measurement(o.getDouble("g"), o.getLong("at"))
                 }
             }.getOrDefault(emptyList())
         }
         set(v) {
             val arr = JSONArray()
-            v.forEach {
-                arr.put(JSONObject().put("tilt", it.tiltDeg).put("drop", it.freqDrop).put("g", it.grams))
+            v.take(MAX_HISTORY).forEach {
+                arr.put(JSONObject().put("g", it.grams).put("at", it.at))
             }
-            prefs.edit().putString("sensor_samples", arr.toString()).apply()
+            prefs.edit().putString("history", arr.toString()).apply()
         }
 
-    /** Masa telefonu — odważnik wbudowany; można ją nadpisać ręcznie. */
-    var phoneGrams: Double
-        get() = prefs.getFloat("phone_g", PhoneMass.forModel().toFloat()).toDouble()
-        set(v) = prefs.edit().putFloat("phone_g", v.toFloat()).apply()
-
-    /** Przelicznik przechyłu na gramy wyliczony samodzielnie z rezonansu. */
-    var gramsPerDegree: Double
-        get() = prefs.getFloat("g_per_deg", 0f).toDouble()
-        set(v) = prefs.edit().putFloat("g_per_deg", v.toFloat()).apply()
-
-    fun clearSensorScale() {
-        prefs.edit().remove("g_per_deg").apply()
-        baselineTilt = null
-        sensorSamples = emptyList()
-        prefs.edit().remove("base_hz").apply()
+    fun addMeasurement(grams: Double) {
+        history = listOf(Measurement(grams, System.currentTimeMillis())) + history
     }
+
+    fun clearHistory() { history = emptyList() }
 }
