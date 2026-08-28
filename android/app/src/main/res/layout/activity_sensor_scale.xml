@@ -99,6 +99,17 @@
                 android:textSize="12.5sp" />
 
             <TextView
+                android:id="@+id/live"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.06"
+                android:text="@string/sen_live_waiting"
+                android:textColor="@color/ok"
+                android:textSize="12.5sp" />
+
+            <TextView
                 android:id="@+id/presence"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -143,6 +154,15 @@
             android:text="@string/sen_not_measured"
             android:textColor="@color/muted"
             android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tare"
+            style="@style/Btn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/sen_btn_tare" />
 
         <TextView
             android:id="@+id/stepZero"

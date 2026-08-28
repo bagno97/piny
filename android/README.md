@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 78 testów, bez emulatora
+gradle :app:testDebugUnitTest    # 81 testów, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.4.apk` (podpisany, minSdk 24).
+Gotowy plik do zainstalowania leży w `dist/waga-1.5.apk` (podpisany, minSdk 24).
 Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -79,6 +79,12 @@ bierny jest dla ekranu pojemnościowego niewidzialny.
 
 **Waga czujnikowa** (`SensorScaleActivity`) mierzy przedmiot **leżący** na
 telefonie, bez żadnego dotyku. Łączy dwa niezależne kanały:
+
+*Odczyt jest ciągły.* Akcelerometr chodzi przez cały czas, gdy ekran czujnikowy
+jest otwarty, a wskazanie liczone jest z ruchomego okna ostatnich ~3 s i
+odświeżane pięć razy na sekundę. Położenie przedmiotu podnosi liczbę, która
+zostaje, dopóki przedmiot leży — waga nie mierzy w zrywach na żądanie.
+Przycisk „Zeruj teraz" ustawia punkt odniesienia w bieżącym położeniu.
 
 *Przechył.* Przedmiot położony poza środkiem ugina miękkie podłoże
 nierównomiernie i obraca telefon o kąt proporcjonalny do momentu siły, czyli do

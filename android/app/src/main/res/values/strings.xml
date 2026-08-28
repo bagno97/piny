@@ -18,13 +18,14 @@
     <string name="value_initial">0,0</string>
     <string name="unit_g">g</string>
 
-    <string name="state_idle">połóż lub naciśnij</string>
+    <string name="state_idle">naciśnij palcem lub rysikiem</string>
     <string name="state_measuring">pomiar</string>
     <string name="state_settling">stabilizacja…</string>
     <string name="state_hold">◼ zatrzymano</string>
     <string name="state_retained">◼ ostatni pomiar · tara zeruje</string>
     <string name="state_overload">przeciążenie</string>
     <string name="state_estimate">szacunkowo · bez wzorca</string>
+    <string name="hint_object">przedmiot leżący → ∿ Czujniki</string>
     <string name="state_beyond">poza zakresem wzorców</string>
 
     <string name="signal">sygnał czujnika</string>
@@ -42,7 +43,7 @@
     <string name="sen_title">Waga czujnikowa</string>
     <string name="sen_back">‹ Wróć</string>
     <string name="sen_open">Czujniki</string>
-    <string name="sen_intro">Mierzy przedmiot LEŻĄCY na telefonie, bez dotykania ekranu. Używa dwóch niezależnych kanałów: przechyłu (przedmiot poza środkiem ugina podłoże i obraca telefon — odczyt trwa, dopóki przedmiot leży) oraz rezonansu (dołożona masa obniża częstotliwość drgań własnych).
+    <string name="sen_intro">Mierzy przedmiot LEŻĄCY na telefonie, bez dotykania ekranu. Odczyt jest ciągły: kładziesz przedmiot, liczba rośnie i zostaje, dopóki przedmiot leży. Używa dwóch niezależnych kanałów: przechyłu (przedmiot poza środkiem ugina podłoże i obraca telefon — odczyt trwa, dopóki przedmiot leży) oraz rezonansu (dołożona masa obniża częstotliwość drgań własnych).
 
 Połóż telefon na złożonym ręczniku, gąbce albo piance. Przedmiot kładź zawsze w TYM SAMYM miejscu, najlepiej przy krawędzi — im dalej od środka, tym większy przechył. Podczas pomiaru nie dotykaj telefonu.</string>
     <string name="sen_status_start">Zacznij od kroku 1: zmierz pusty telefon.</string>
@@ -51,7 +52,13 @@ Połóż telefon na złożonym ręczniku, gąbce albo piance. Przedmiot kładź 
     <string name="sen_step_2">Krok 2 · wzorce o znanej masie</string>
     <string name="sen_step_3">Krok 3 · ważenie</string>
 
-    <string name="sen_btn_zero">Zmierz pusty telefon</string>
+    <string name="sen_btn_zero">Zmierz pusty telefon (z rezonansem)</string>
+    <string name="sen_btn_tare">Zeruj teraz</string>
+    <string name="sen_live_waiting">odczyt na żywo: czekam na punkt zerowy</string>
+    <string name="sen_live_ok">odczyt na żywo: spokojny</string>
+    <string name="sen_live_unstable">odczyt na żywo: telefon drga</string>
+    <string name="sen_tare_done">Wyzerowano w tym położeniu.</string>
+    <string name="sen_tare_unstable">Telefon się rusza — odstaw go i spróbuj ponownie.</string>
     <string name="sen_btn_reference">Dodaj wzorzec</string>
     <string name="sen_btn_weigh">Zważ przedmiot</string>
     <string name="sen_btn_reset">Skasuj kalibrację czujnikową</string>

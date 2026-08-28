@@ -241,7 +241,7 @@ class MainActivity : AppCompatActivity() {
         if (shown == null) {
             b.value.setTextIfChanged("0,0")
             b.value.setTextColor(colMuted)
-            b.alt.setTextIfChanged("")
+            b.alt.setTextIfChanged(getString(R.string.hint_object))
         } else {
             b.value.setTextIfChanged(Fmt.pl(u.fromGrams(shown), displayUnit.decimals))
             if (shown > 0) lastMass = shown
@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity() {
             b.alt.setTextIfChanged(if (shown > 0) {
                 val base = "${Fmt.pl(alt.fromGrams(shown), 2)} ${alt.symbol}"
                 if (r.tare > 0) "$base  ·  netto" else base
-            } else "")
+            } else getString(R.string.hint_object))
         }
 
         b.sub.setTextIfChanged(when {

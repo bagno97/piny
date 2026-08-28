@@ -155,4 +155,66 @@ class SensorScaleActivityTest {
         runCapture(a, 0.0, 40.0)                // nic się nie zmieniło
         assertTrue(a.findViewById<TextView>(R.id.status).text.toString().contains("Żaden kanał"))
     }
+
+    /** Podaje próbki w stanie spoczynku — tak, jak leżący telefon. */
+    private fun feedResting(a: SensorScaleActivity, tiltDeg: Double, n: Int = 200, noise: Double = 0.004) {
+        val rad = Math.toRadians(tiltDeg)
+        repeat(n) {
+            send(a,
+                9.81 * sin(rad) + random.nextGaussian() * noise,
+                random.nextGaussian() * noise,
+                9.81 * cos(rad) + random.nextGaussian() * noise,
+                it / 50.0)
+        }
+        idle(400)
+    }
+
+    @Test
+    fun `odczyt lezacego przedmiotu pojawia sie sam i zostaje`() {
+        val a = launch()
+
+        // pusty telefon leży spokojnie, zerujemy w tym położeniu
+        feedResting(a, 0.0)
+        a.findViewById<TextView>(R.id.tare).performClick()
+        idle(300)
+
+        // kładziemy przedmiot: przechył rośnie bez naciskania czegokolwiek
+        feedResting(a, 0.35)
+        val shown = a.findViewById<TextView>(R.id.channelTilt).text.toString()
+        val angle = Regex("""przechył ([0-9.]+)""").find(shown)!!.groupValues[1].toDouble()
+        assertEquals("odczyt pojawia się sam: $shown", 0.35, angle, 0.05)
+
+        // przedmiot dalej leży — wskazanie ma zostać, a nie wrócić do zera
+        feedResting(a, 0.35)
+        feedResting(a, 0.35)
+        val later = Regex("""przechył ([0-9.]+)""")
+            .find(a.findViewById<TextView>(R.id.channelTilt).text.toString())!!
+            .groupValues[1].toDouble()
+        assertEquals("wskazanie musi zostać, dopóki przedmiot leży", 0.35, later, 0.05)
+    }
+
+    @Test
+    fun `zdjecie przedmiotu sprowadza wskazanie do zera`() {
+        val a = launch()
+        feedResting(a, 0.0)
+        a.findViewById<TextView>(R.id.tare).performClick()
+        idle(300)
+
+        feedResting(a, 0.30)
+        feedResting(a, 0.0)
+        feedResting(a, 0.0)
+        val angle = Regex("""przechył ([0-9.]+)""")
+            .find(a.findViewById<TextView>(R.id.channelTilt).text.toString())!!
+            .groupValues[1].toDouble()
+        assertTrue("po zdjęciu przedmiotu wskazanie wraca do zera, było $angle", angle < 0.05)
+    }
+
+    @Test
+    fun `zerowanie odrzuca poruszany telefon`() {
+        val a = launch()
+        feedResting(a, 0.0, noise = 1.2)
+        a.findViewById<TextView>(R.id.tare).performClick()
+        idle(200)
+        assertEquals("nie zmierzono", a.findViewById<TextView>(R.id.stateZero).text.toString())
+    }
 }

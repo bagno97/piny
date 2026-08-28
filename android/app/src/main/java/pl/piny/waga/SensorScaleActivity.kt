@@ -41,6 +41,11 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         const val RINGDOWN_MS = 2600L
         const val MIN_STATIC_SAMPLES = 64
         const val MIN_RINGDOWN_SAMPLES = 512
+
+        /** Okno uśredniania odczytu na żywo — kompromis między spokojem a reakcją. */
+        const val LIVE_WINDOW = 160
+        const val LIVE_REFRESH_MS = 200L
+        const val LIVE_MIN_SAMPLES = 48
         private const val NANOS = 1_000_000_000.0
     }
 
@@ -61,6 +66,18 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
     private val stamps = ArrayList<Long>(4096)
     private var proximityNear = false
     private var onCaptured: ((Direction?, Double?, Double) -> Unit)? = null
+
+    /** Okno ostatnich sekund — z niego liczony jest odczyt na żywo. */
+    private val liveWindow = ArrayDeque<Direction>()
+    private var liveTiltDeg = 0.0
+    private var liveMass = 0.0
+
+    private val liveTicker = object : Runnable {
+        override fun run() {
+            updateLive()
+            ui.postDelayed(this, LIVE_REFRESH_MS)
+        }
+    }
 
     private var baseline: Direction? = null
     private var baselineHz = 0.0
@@ -85,6 +102,7 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
 
         b.back.setOnClickListener { finish() }
         b.stepZero.setOnClickListener { measureZero() }
+        b.tare.setOnClickListener { tareHere() }
         b.stepReference.setOnClickListener { addReference() }
         b.stepWeigh.setOnClickListener { weigh() }
         b.reset.setOnClickListener {
@@ -102,9 +120,38 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         paintState()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // czujnik chodzi bez przerwy: waga ma pokazywać masę leżącego przedmiotu
+        // od razu i trzymać ją, a nie mierzyć w czterosekundowych zrywach
+        accelerometer?.let { sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        proximity?.let { sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        ui.post(liveTicker)
+    }
+
     override fun onPause() {
         super.onPause()
+        ui.removeCallbacks(liveTicker)
         stopCapture()
+        sensors.unregisterListener(this)
+    }
+
+    /** Przelicza okno na kąt i masę; wołane co [LIVE_REFRESH_MS]. */
+    private fun updateLive() {
+        if (phase != Phase.IDLE) return
+        val base = baseline ?: return
+        if (liveWindow.size < LIVE_MIN_SAMPLES) return
+
+        val samplesNow = liveWindow.toList()
+        val mean = TiltAnalyzer.meanDirection(samplesNow, maxSpreadDeg = 2.0) ?: return
+        liveTiltDeg = base.angleTo(mean)
+        liveMass = model?.mass(liveTiltDeg, 0.0) ?: 0.0
+
+        b.channelTilt.text = getString(R.string.sen_tilt_value, String.format(Locale.US, "%.4f", liveTiltDeg))
+        if (model != null) b.mass.text = Fmt.pl(liveMass, 1)
+        b.live.text = getString(
+            if (TiltAnalyzer.spreadDeg(samplesNow) > 0.4) R.string.sen_live_unstable else R.string.sen_live_ok
+        )
     }
 
     // ── zbieranie danych z czujników ────────────────────────────────────────
@@ -123,6 +170,7 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         b.status.text = prompt
         setButtonsEnabled(false)
 
+        sensors.unregisterListener(this)
         sensors.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST)
         proximity?.let { sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
 
@@ -163,6 +211,9 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         if (phase == Phase.IDLE) return
         phase = Phase.IDLE
         sensors.unregisterListener(this)
+        liveWindow.clear()
+        accelerometer?.let { sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        proximity?.let { sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
     }
 
     override fun onSensorChanged(event: SensorEvent) {
@@ -176,12 +227,15 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
                 val y = event.values[1].toDouble()
                 val z = event.values[2].toDouble()
                 when (phase) {
+                    Phase.IDLE -> {
+                        liveWindow.addLast(Direction(x, y, z))
+                        while (liveWindow.size > LIVE_WINDOW) liveWindow.removeFirst()
+                    }
                     Phase.STATIC -> directions.add(Direction(x, y, z))
                     Phase.RINGDOWN -> {
                         magnitudes.add(sqrt(x * x + y * y + z * z))
                         stamps.add(event.timestamp)
                     }
-                    Phase.IDLE -> Unit
                 }
             }
         }
@@ -206,6 +260,23 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         b.status.text = getString(R.string.sen_zero_done,
             if (baselineHz > 0) String.format(Locale.US, "%.2f Hz", baselineHz)
             else getString(R.string.sen_res_missing))
+        paintState()
+    }
+
+    /** Zeruje wskazanie w bieżącym położeniu — bez ceremonii, jak tara w wadze. */
+    private fun tareHere() {
+        val samplesNow = liveWindow.toList()
+        val mean = TiltAnalyzer.meanDirection(samplesNow, maxSpreadDeg = 2.0)
+        if (mean == null) {
+            toast(getString(R.string.sen_tare_unstable))
+            return
+        }
+        baseline = mean
+        store.baselineTilt = mean
+        liveTiltDeg = 0.0
+        liveMass = 0.0
+        b.mass.text = "0,0"
+        toast(getString(R.string.sen_tare_done))
         paintState()
     }
 

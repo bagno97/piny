@@ -11,8 +11,8 @@ android {
         applicationId = "pl.piny.waga"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     signingConfigs {
