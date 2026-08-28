@@ -10,7 +10,7 @@ naprawdę zwraca sterownik ekranu.
 ```bash
 export ANDROID_HOME=/ścieżka/do/android-sdk
 gradle :app:assembleDebug        # APK do side-loadingu
-gradle :app:testDebugUnitTest    # 84 testy, bez emulatora
+gradle :app:testDebugUnitTest    # 88 testów, bez emulatora
 ```
 
 Wymagania: JDK 17+, Android SDK z `platforms;android-35` i `build-tools;35.0.0`.
@@ -34,7 +34,7 @@ keytool -genkeypair -keystore waga.jks -storetype PKCS12 \
   -alias waga -keyalg RSA -keysize 4096 -validity 10950
 ```
 
-Gotowy plik do zainstalowania leży w `dist/waga-1.6.apk` (podpisany, minSdk 24).
+Gotowy plik do zainstalowania leży w `dist/waga-1.7.apk` (podpisany, minSdk 24).
 Suma kontrolna jest obok, w pliku `.sha256`.
 
 ## Testy
@@ -79,6 +79,18 @@ bierny jest dla ekranu pojemnościowego niewidzialny.
 
 **Waga czujnikowa** (`SensorScaleActivity`) mierzy przedmiot **leżący** na
 telefonie, bez żadnego dotyku. Łączy dwa niezależne kanały:
+
+*Kalibracja jest opcjonalna, bo odważnik jest wbudowany.* Masa telefonu jest
+znana z katalogu (`PhoneMass`, rozpoznanie po `Build.MODEL`; Galaxy A35 5G to
+209 g). Z f₀ = (1/2π)·√(k/M₀) przy znanym M₀ wynika C = M₀·f₀², a stąd każda
+dołożona masa liczy się bezwzględnie: m = C/f² − M₀. Żaden wzorzec nie jest
+potrzebny.
+
+Pierwszy zważony przedmiot nadaje przy okazji skalę szybkiemu kanałowi
+przechyłowemu (gramy na stopień), więc kolejne odczyty są natychmiastowe — bez
+czekania na pobudzenie układu. Wzorzec o znanej masie pozostaje sposobem na
+uściślenie, a nie warunkiem działania; dokładność bezwzorcową ogranicza to, że
+podłoże wnosi własną masę zastępczą.
 
 *Waga obsługuje się sama.* Pomiar wymaga nieruchomego telefonu, a każde
 dotknięcie go psuje — przyrząd, który każe naciskać przyciski w trakcie pomiaru,

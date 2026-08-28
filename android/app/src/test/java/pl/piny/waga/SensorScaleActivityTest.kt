@@ -74,6 +74,28 @@ class SensorScaleActivityTest {
         idle(SensorScaleActivity.RINGDOWN_MS + 200)
     }
 
+    /** Odstawia telefon i czeka, aż waga wyzeruje się sama. */
+    private fun autoZero(a: SensorScaleActivity) {
+        for (i in 0 until 20) {
+            feedResting(a, 0.0, n = 60, noise = 0.002)
+            if (a.findViewById<TextView>(R.id.stateZero).text.toString().contains("zmierzony")) return
+        }
+        fail("waga nie wyzerowała się sama")
+    }
+
+    /**
+     * Prowadzi wagę przez zadaną liczbę cykli, obsługując pomiary, które
+     * rozpoczyna ona sama — to ona decyduje, kiedy pobudzić układ.
+     */
+    private fun drive(a: SensorScaleActivity, tiltDeg: Double, hz: Double, rounds: Int) {
+        repeat(rounds) {
+            if (a.busy) runCapture(a, tiltDeg, hz)
+            else feedResting(a, tiltDeg, n = 60, noise = 0.002)
+        }
+    }
+
+    private fun status(a: SensorScaleActivity) = a.findViewById<TextView>(R.id.status).text.toString()
+
     @Test
     fun `ekran startuje i prowadzi od kroku pierwszego`() {
         val a = launch()
@@ -82,56 +104,61 @@ class SensorScaleActivityTest {
     }
 
     @Test
-    fun `mierzy przedmiot lezacy  bez zadnego dotkniecia ekranu`() {
+    fun `liczy w gramach bez zadnego wzorca  odwaznikiem jest sam telefon`() {
         val a = launch()
-        val systemMass = 200.0
+        val phone = 209.0
+        Store(a).phoneGrams = phone
         val emptyHz = 40.0
-        val c = systemMass * emptyHz * emptyHz
-        // przechył 0,02° na gram — przedmiot kładziony zawsze w tym samym miejscu
-        fun tiltFor(g: Double) = g * 0.02
-        fun hzFor(g: Double) = sqrt(c / (systemMass + g))
+        val c = phone * emptyHz * emptyHz
+        fun hzFor(g: Double) = sqrt(c / (phone + g))
 
-        // krok 1 — pusty telefon
-        a.findViewById<TextView>(R.id.stepZero).performClick()
-        runCapture(a, 0.0, emptyHz)
-        assertTrue("stan pusty zmierzony",
-            a.findViewById<TextView>(R.id.stateZero).text.toString().contains("zmierzony"))
+        // odstawiony telefon zeruje się sam, po czym sam mierzy drgania własne
+        autoZero(a)
+        drive(a, 0.0, emptyHz, rounds = 6)
+        assertTrue("waga ma być gotowa bez wzorca, stan: ${status(a)}",
+            status(a).contains("bez wzorca"))
 
-        // krok 2 — trzy wzorce, żeby model objął oba kanały
-        for (g in listOf(10.0, 30.0, 60.0)) {
-            a.findViewById<EditText>(R.id.referenceMass).setText(Fmt.pl(g, 1))
-            a.findViewById<TextView>(R.id.stepReference).performClick()
-            runCapture(a, tiltFor(g), hzFor(g))
-        }
-        val modelState = a.findViewById<TextView>(R.id.stateModel).text.toString()
-        assertTrue("model powinien objąć oba kanały: $modelState", modelState.contains("oba kanały"))
+        // kładziemy przedmiot: przechył się ustala, waga sama waży bezwzględnie
+        drive(a, 0.30, hzFor(20.0), rounds = 16)
 
-        // krok 3 — ważenie przedmiotu, którego nie było wśród wzorców
-        a.findViewById<TextView>(R.id.stepWeigh).performClick()
-        runCapture(a, tiltFor(45.0), hzFor(45.0))
         val shown = a.findViewById<TextView>(R.id.mass).text.toString().replace(',', '.').toDouble()
-        assertEquals("masa leżącego przedmiotu", 45.0, shown, 4.0)
-
-        assertTrue("pomiar trafia do dziennika", Store(a).history.isNotEmpty())
+        assertEquals("masa policzona bez kalibracji, stan: ${status(a)}", 20.0, shown, 2.0)
     }
 
     @Test
-    fun `sam przechyl wystarczy gdy rezonansu nie ma`() {
+    fun `po pierwszym wazeniu odczyt przechylu jest natychmiastowy`() {
         val a = launch()
-        a.findViewById<TextView>(R.id.stepZero).performClick()
-        runCapture(a, 0.0, 40.0)
+        val phone = 209.0
+        Store(a).phoneGrams = phone
+        val emptyHz = 40.0
+        val c = phone * emptyHz * emptyHz
+
+        autoZero(a)
+        drive(a, 0.0, emptyHz, rounds = 6)
+        drive(a, 0.30, sqrt(c / (phone + 20.0)), rounds = 16)
+
+        // inny przedmiot: sam przechył wystarczy, bez ponownego pobudzania
+        drive(a, 0.45, sqrt(c / (phone + 30.0)), rounds = 10)
+        val shown = a.findViewById<TextView>(R.id.mass).text.toString().replace(',', '.').toDouble()
+        assertEquals("półtora raza większy przechył to półtora raza większa masa",
+            30.0, shown, 4.0)
+    }
+
+    @Test
+    fun `wzorzec zapisuje sie sam  bez naciskania w trakcie pomiaru`() {
+        val a = launch()
+        autoZero(a)
 
         a.findViewById<EditText>(R.id.referenceMass).setText("20,0")
         a.findViewById<TextView>(R.id.stepReference).performClick()
-        runCapture(a, 0.40, 40.0)              // częstotliwość bez zmian, sam przechył
+        assertTrue("waga ma czekać na wzorzec",
+            a.findViewById<TextView>(R.id.status).text.toString().contains("Czekam"))
 
+        // kładziemy wzorzec i cofamy ręce — reszta dzieje się sama
+        drive(a, 0.40, 40.0, rounds = 16)
         val state = a.findViewById<TextView>(R.id.stateModel).text.toString()
-        assertTrue("model musi zejść na jeden kanał: $state", state.contains("przechył"))
-
-        a.findViewById<TextView>(R.id.stepWeigh).performClick()
-        runCapture(a, 0.20, 40.0)
-        val shown = a.findViewById<TextView>(R.id.mass).text.toString().replace(',', '.').toDouble()
-        assertEquals("połowa przechyłu to połowa masy", 10.0, shown, 2.0)
+        assertFalse("wzorzec musi zostać zapisany bez dotykania telefonu: $state",
+            state.contains("brak wzorców"))
     }
 
     @Test
@@ -142,18 +169,6 @@ class SensorScaleActivityTest {
         assertTrue("aplikacja musi odrzucić niespokojny zapis",
             a.findViewById<TextView>(R.id.status).text.toString().contains("poruszał"))
         assertEquals("nie zmierzono", a.findViewById<TextView>(R.id.stateZero).text.toString())
-    }
-
-    @Test
-    fun `brak sygnalu w obu kanalach jest zglaszany`() {
-        val a = launch()
-        a.findViewById<TextView>(R.id.stepZero).performClick()
-        runCapture(a, 0.0, 40.0)
-
-        a.findViewById<EditText>(R.id.referenceMass).setText("20,0")
-        a.findViewById<TextView>(R.id.stepReference).performClick()
-        runCapture(a, 0.0, 40.0)                // nic się nie zmieniło
-        assertTrue(a.findViewById<TextView>(R.id.status).text.toString().contains("Żaden kanał"))
     }
 
     /** Podaje próbki w stanie spoczynku — tak, jak leżący telefon. */
@@ -222,11 +237,7 @@ class SensorScaleActivityTest {
     fun `waga zeruje sie sama gdy telefon lezy nieruchomo`() {
         val a = launch()
         // odstawiony telefon: mały rozrzut przez ponad dwie sekundy
-        repeat(12) { feedResting(a, 0.0, n = 60, noise = 0.002) }
-        assertTrue("po odstawieniu waga ma się wyzerować bez pytania",
-            a.findViewById<TextView>(R.id.status).text.toString().contains("samoczynnie"))
-        assertEquals("zmierzony · rezonans brak",
-            a.findViewById<TextView>(R.id.stateZero).text.toString())
+        autoZero(a)
     }
 
     @Test

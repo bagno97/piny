@@ -70,6 +70,9 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
     private enum class Phase { IDLE, STATIC, RINGDOWN }
 
     private var phase = Phase.IDLE
+
+    /** Widoczne w module: testy muszą wiedzieć, kiedy waga sama zaczęła pomiar. */
+    internal val busy: Boolean get() = phase != Phase.IDLE
     private val directions = ArrayList<Direction>(1024)
     private val magnitudes = ArrayList<Double>(4096)
     private val stamps = ArrayList<Long>(4096)
@@ -84,6 +87,17 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
     private var settleSince = 0L
     private var settleValue = 0.0
     private var latched: Double? = null
+
+    /** Masa wzorca, na którego położenie waga czeka, żeby zapisać go sama. */
+    private var awaitingReference: Double? = null
+
+    /** Skala rezonansowa oparta na masie telefonu — działa bez żadnego wzorca. */
+    private var resonanceScale: ResonanceScale? = null
+    /** Ile gramów przypada na stopień przechyłu; wyliczane samo z rezonansu. */
+    private var gramsPerDegree = 0.0
+    private var autoStage = AutoStage.NONE
+
+    private enum class AutoStage { NONE, BASELINE_DONE, OBJECT_DONE }
 
     private val liveTicker = object : Runnable {
         override fun run() {
@@ -112,6 +126,11 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         baselineHz = store.baselineHz
         samples = store.sensorSamples
         model = SensorScaleModel.build(samples)
+        gramsPerDegree = store.gramsPerDegree
+        if (baselineHz > 0) {
+            resonanceScale = ResonanceScale.fromPhoneMass(baselineHz, store.phoneGrams)
+            if (resonanceScale != null) autoStage = AutoStage.BASELINE_DONE
+        }
 
         b.back.setOnClickListener { finish() }
         b.stepZero.setOnClickListener { measureZero() }
@@ -189,14 +208,19 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
                 buzz(20)
                 b.status.setText(R.string.sen_auto_zero)
                 paintState()
+                if (autoStage == AutoStage.NONE) ui.postDelayed({ measureBaselineResonance() }, 700)
             }
             return
         }
 
         liveTiltDeg = base.angleTo(mean)
-        liveMass = model?.mass(liveTiltDeg, 0.0) ?: 0.0
+        liveMass = when {
+            model != null -> model!!.mass(liveTiltDeg, 0.0)
+            gramsPerDegree > 0 -> liveTiltDeg * gramsPerDegree
+            else -> 0.0
+        }
         b.channelTilt.text = getString(R.string.sen_tilt_value, String.format(Locale.US, "%.4f", liveTiltDeg))
-        if (model != null) b.mass.text = Fmt.pl(liveMass, 1)
+        if (model != null || gramsPerDegree > 0) b.mass.text = Fmt.pl(liveMass, 1)
 
         // zatrzymanie wyniku po ustaleniu się nowego poziomu
         if (kotlin.math.abs(liveTiltDeg - settleValue) > CHANGE_DEG) {
@@ -206,12 +230,18 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         }
         if (settleSince != 0L && now - settleSince > SETTLE_MS && latched != liveTiltDeg) {
             latched = liveTiltDeg
-            if (liveTiltDeg > CHANGE_DEG) {
+            if (awaitingReference != null) {
+                captureReference(liveTiltDeg)
+            } else if (liveTiltDeg > CHANGE_DEG && gramsPerDegree <= 0 &&
+                resonanceScale != null && autoStage == AutoStage.BASELINE_DONE) {
+                measureObjectResonance(liveTiltDeg)
+            } else if (liveTiltDeg > CHANGE_DEG) {
                 buzz(25)
-                b.status.text = getString(
+                b.status.text = if (model != null) getString(
                     R.string.sen_settled,
-                    String.format(Locale.US, "%.4f", liveTiltDeg),
-                    if (model != null) Fmt.pl(liveMass, 1) else "—"
+                    String.format(Locale.US, "%.4f", liveTiltDeg), Fmt.pl(liveMass, 1)
+                ) else getString(
+                    R.string.sen_settled_uncalibrated, String.format(Locale.US, "%.4f", liveTiltDeg)
                 )
             }
         }
@@ -240,7 +270,7 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         phase = Phase.STATIC
         ui.postDelayed({
             phase = Phase.RINGDOWN
-            buzz(35)                                    // impuls pobudzający układ
+            excite()                                    // seria impulsów pobudzających układ
             ui.postDelayed({ finishCapture() }, RINGDOWN_MS)
         }, STATIC_MS)
     }
@@ -343,52 +373,100 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         paintState()
     }
 
+    /**
+     * Wzorzec zapisuje się sam.
+     *
+     * Wcześniej trzeba było nacisnąć przycisk i w cztery sekundy cofnąć ręce —
+     * a samo naciśnięcie szarpało telefonem i psuło pomiar. Teraz przycisk tylko
+     * uzbraja oczekiwanie: waga zapisze wzorzec, gdy sama zobaczy spokój i
+     * ustalony przechył.
+     */
     private fun addReference() {
-        val base = baseline
-        if (base == null) { toast(getString(R.string.sen_need_zero)); return }
+        if (baseline == null) { toast(getString(R.string.sen_need_zero)); return }
         val grams = Fmt.parse(b.referenceMass.text.toString())
         if (grams == null || grams <= 0) { toast(getString(R.string.sen_need_mass)); return }
 
-        capture(getString(R.string.sen_capturing_reference)) { tilt, hz, spread ->
-            if (tilt == null) {
-                b.status.text = getString(R.string.sen_unstable, String.format(Locale.US, "%.3f", spread))
+        awaitingReference = grams
+        settleSince = 0L
+        latched = null
+        b.status.text = getString(R.string.sen_awaiting_reference, Fmt.pl(grams, 1))
+    }
+
+    /** Wołane, gdy przechył ustali się na nowym poziomie przy uzbrojonym oczekiwaniu. */
+    private fun captureReference(tiltDeg: Double) {
+        val grams = awaitingReference ?: return
+        if (tiltDeg < SensorScaleModel.MIN_TILT_DEG) {
+            b.status.text = getString(R.string.sen_reference_too_small,
+                String.format(Locale.US, "%.4f", tiltDeg))
+            return
+        }
+        awaitingReference = null
+        samples = samples + SensorSample(tiltDeg, 0.0, grams)
+        store.sensorSamples = samples
+        model = SensorScaleModel.build(samples)
+        buzz(40)
+        b.status.text = getString(R.string.sen_reference_added,
+            Fmt.pl(grams, 1), String.format(Locale.US, "%.4f", tiltDeg), "0.000")
+        paintState()
+    }
+
+    /** Zapisuje bieżący odczyt na żywo do dziennika — nic nie trzeba mierzyć osobno. */
+    private fun weigh() {
+        if (baseline == null) { toast(getString(R.string.sen_need_zero)); return }
+        val current = model
+        if (current == null) { toast(getString(R.string.sen_need_reference)); return }
+        if (liveMass <= 0.05) { toast(getString(R.string.sen_nothing_on_phone)); return }
+        store.addMeasurement(liveMass)
+        toast(getString(R.string.sen_saved, Fmt.pl(liveMass, 1)))
+    }
+
+    /**
+     * Mierzy drgania własne pustego telefonu i buduje z nich skalę bezwzględną.
+     * Odważnikiem jest masa samego telefonu, więc nie potrzeba żadnego wzorca.
+     */
+    private fun measureBaselineResonance() {
+        if (phase != Phase.IDLE || baseline == null) return
+        capture(getString(R.string.sen_auto_resonance)) { _, hz, _ ->
+            if (hz == null) {
+                b.status.setText(R.string.sen_resonance_failed)
                 return@capture
             }
-            val tiltDeg = base.angleTo(tilt)
-            val drop = if (baselineHz > 0 && hz != null) (baselineHz - hz).coerceAtLeast(0.0) else 0.0
-
-            if (tiltDeg < SensorScaleModel.MIN_TILT_DEG && drop < SensorScaleModel.MIN_FREQ_DROP) {
-                b.status.text = getString(R.string.sen_no_signal)
-                return@capture
-            }
-
-            samples = samples + SensorSample(tiltDeg, drop, grams)
-            store.sensorSamples = samples
-            model = SensorScaleModel.build(samples)
-            b.status.text = getString(R.string.sen_reference_added,
-                Fmt.pl(grams, 1), String.format(Locale.US, "%.4f", tiltDeg),
-                String.format(Locale.US, "%.3f", drop))
+            baselineHz = hz
+            store.baselineHz = hz
+            resonanceScale = ResonanceScale.fromPhoneMass(hz, store.phoneGrams)
+            autoStage = AutoStage.BASELINE_DONE
+            b.status.text = getString(R.string.sen_ready,
+                String.format(Locale.US, "%.2f", hz), Fmt.pl(store.phoneGrams, 0))
             paintState()
         }
     }
 
-    private fun weigh() {
-        val base = baseline
-        val current = model
-        if (base == null || current == null) { toast(getString(R.string.sen_need_calibration)); return }
-
-        capture(getString(R.string.sen_capturing_object)) { tilt, hz, spread ->
-            if (tilt == null) {
-                b.status.text = getString(R.string.sen_unstable, String.format(Locale.US, "%.3f", spread))
+    /**
+     * Mierzy rezonans z przedmiotem, przelicza go na masę i tym samym nadaje
+     * skalę szybkiemu kanałowi przechyłowemu. Od tej chwili odczyt jest w gramach
+     * natychmiast, bez czekania na kolejne pobudzenie.
+     */
+    private fun measureObjectResonance(tiltDeg: Double) {
+        val scale = resonanceScale ?: return
+        if (phase != Phase.IDLE) return
+        capture(getString(R.string.sen_auto_weighing)) { _, hz, _ ->
+            if (hz == null) {
+                b.status.setText(R.string.sen_resonance_failed)
                 return@capture
             }
-            val tiltDeg = base.angleTo(tilt)
-            val drop = if (baselineHz > 0 && hz != null) (baselineHz - hz).coerceAtLeast(0.0) else 0.0
-            val grams = current.mass(tiltDeg, drop)
-
+            val grams = scale.mass(hz)
+            autoStage = AutoStage.OBJECT_DONE
+            if (grams <= 0.05 || tiltDeg <= 0) {
+                b.status.setText(R.string.sen_object_too_light)
+                return@capture
+            }
+            gramsPerDegree = grams / tiltDeg
+            store.gramsPerDegree = gramsPerDegree
+            liveMass = grams
             b.mass.text = Fmt.pl(grams, 1)
-            b.status.text = getString(R.string.sen_weigh_done, Fmt.pl(grams / 0.2, 2))
-            if (grams > 0.05) store.addMeasurement(grams)
+            buzz(40)
+            b.status.text = getString(R.string.sen_auto_done, Fmt.pl(grams, 1))
+            paintState()
         }
     }
 
@@ -413,14 +491,30 @@ class SensorScaleActivity : AppCompatActivity(), SensorEventListener {
         listOf(b.stepZero, b.stepReference, b.stepWeigh, b.reset).forEach { it.isEnabled = enabled }
     }
 
-    private fun buzz(ms: Long) {
-        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    /**
+     * Pobudza układ serią krótkich impulsów. Pojedyncze szarpnięcie bywa za słabe
+     * na miękkim podłożu, a seria działa jak uderzenie szerokopasmowe — daje
+     * wyraźniejszy szczyt bez luzowania progów w analizie.
+     */
+    private fun excite() {
+        val vib = vibrator() ?: return
+        runCatching {
+            vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 25, 35, 25, 35, 25), -1))
+        }
+    }
+
+    private fun vibrator(): Vibrator? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
-        runCatching { vib?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)) }
+
+    private fun buzz(ms: Long) {
+        runCatching {
+            vibrator()?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

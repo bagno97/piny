@@ -16,8 +16,20 @@ import kotlin.math.sqrt
 object ResonanceAnalyzer {
 
     /** Poza tym pasmem szukanie nie ma sensu: niżej dryf, wyżej szum czujnika. */
+    /**
+     * Dolna granica pasma. Nie schodzimy niżej celowo: zanik drgań ma potężny
+     * ogon przy najniższych częstotliwościach i przy szerszym paśmie to on
+     * wygrywałby z rzeczywistym szczytem rezonansu.
+     */
     const val MIN_HZ = 4.0
     const val MAX_HZ = 150.0
+
+    /**
+     * Ile razy szczyt musi przewyższać tło. Obniżenie tego progu sprawia, że
+     * czysty szum zaczyna uchodzić za rezonans — fałszywy odczyt jest gorszy
+     * niż brak odczytu, więc zamiast luzować próg wzmacniamy pobudzenie.
+     */
+    const val PEAK_OVER_BACKGROUND = 3.0
 
     /**
      * Szczyt widma w paśmie [MIN_HZ]–[MAX_HZ] z interpolacją paraboliczną,
@@ -42,7 +54,7 @@ object ResonanceAnalyzer {
         // szczyt musi wystawać ponad tło, inaczej to szum
         val background = (from..to).filter { abs(it - peak) > 2 }
             .map { spectrum[it] }.average()
-        if (background <= 0 || spectrum[peak] < background * 3) return null
+        if (background <= 0 || spectrum[peak] < background * PEAK_OVER_BACKGROUND) return null
 
         return (peak + parabolicOffset(spectrum, peak)) * binHz
     }
@@ -72,6 +84,19 @@ class ResonanceScale(
     val constant: Double
 ) {
     companion object {
+        /**
+         * Kalibracja bez wzorca: odważnikiem jest sam telefon.
+         *
+         * Z f₀ = (1/2π)·√(k/M₀) przy znanej masie telefonu wynika C = M₀·f₀²,
+         * a stąd każda dołożona masa liczy się bezwzględnie. Dokładność ogranicza
+         * to, że podłoże też wnosi masę zastępczą — dlatego wynik jest przybliżony,
+         * a wzorzec pozostaje sposobem na jego uściślenie.
+         */
+        fun fromPhoneMass(emptyHz: Double, phoneGrams: Double): ResonanceScale? {
+            if (emptyHz <= 0 || phoneGrams <= 0) return null
+            return ResonanceScale(emptyHz, phoneGrams * emptyHz * emptyHz)
+        }
+
         /**
          * Kalibracja wzorcem. Zwraca null, gdy pomiar przeczy fizyce —
          * dołożenie masy musi obniżyć częstotliwość.

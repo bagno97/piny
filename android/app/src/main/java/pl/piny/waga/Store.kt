@@ -171,7 +171,18 @@ class Store(context: Context) {
             prefs.edit().putString("sensor_samples", arr.toString()).apply()
         }
 
+    /** Masa telefonu — odważnik wbudowany; można ją nadpisać ręcznie. */
+    var phoneGrams: Double
+        get() = prefs.getFloat("phone_g", PhoneMass.forModel().toFloat()).toDouble()
+        set(v) = prefs.edit().putFloat("phone_g", v.toFloat()).apply()
+
+    /** Przelicznik przechyłu na gramy wyliczony samodzielnie z rezonansu. */
+    var gramsPerDegree: Double
+        get() = prefs.getFloat("g_per_deg", 0f).toDouble()
+        set(v) = prefs.edit().putFloat("g_per_deg", v.toFloat()).apply()
+
     fun clearSensorScale() {
+        prefs.edit().remove("g_per_deg").apply()
         baselineTilt = null
         sensorSamples = emptyList()
         prefs.edit().remove("base_hz").apply()

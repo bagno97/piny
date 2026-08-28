@@ -60,10 +60,22 @@ Połóż telefon na złożonym ręczniku, gąbce albo piance. Przedmiot kładź 
     <string name="sen_live_moving">spokój %1$s° · TELEFON SIĘ RUSZA</string>
     <string name="sen_auto_zero">Telefon leży spokojnie — wyzerowano samoczynnie. Teraz połóż przedmiot i nie dotykaj telefonu.</string>
     <string name="sen_settled">Wskazanie ustalone: przechył %1$s°, masa %2$s g.</string>
+    <string name="sen_settled_uncalibrated">Wskazanie ustalone: przechył %1$s°. Żeby zamienić stopnie na gramy, dodaj wzorzec o znanej masie (krok 2).</string>
+    <string name="sen_awaiting_reference">Czekam na wzorzec %1$s g. Połóż go przy krawędzi i COFNIJ RĘCE — zapiszę go sam, gdy telefon się uspokoi.</string>
+    <string name="sen_reference_too_small">Przechył %1$s° jest za mały, żeby uznać go za wzorzec. Połóż go dalej od środka albo użyj bardziej miękkiego podłoża.</string>
+    <string name="sen_auto_resonance">Mierzę drgania własne telefonu… nie dotykaj go.</string>
+    <string name="sen_auto_weighing">Coś leży — ważę bezwzględnie… nie dotykaj telefonu.</string>
+    <string name="sen_ready">Gotowe. Drgania własne %1$s Hz przy masie telefonu %2$s g — waga liczy w gramach bez wzorca. Połóż przedmiot.</string>
+    <string name="sen_auto_done">Zważono %1$s g. Od teraz odczyt jest natychmiastowy.</string>
+    <string name="sen_resonance_failed">Nie znalazłem drgań własnych. Podłoże jest za twarde albo za miękkie — spróbuj złożonego ręcznika, gąbki lub cienkiej pianki.</string>
+    <string name="sen_object_too_light">Przedmiot za lekki dla kanału rezonansowego. Dodaj wzorzec o znanej masie (krok 2), żeby wyskalować szybki kanał przechyłowy.</string>
+    <string name="sen_need_reference">Najpierw dodaj wzorzec o znanej masie (krok 2).</string>
+    <string name="sen_nothing_on_phone">Wskazanie jest zerowe — nic nie leży na telefonie.</string>
+    <string name="sen_saved">Zapisano %1$s g w dzienniku.</string>
     <string name="sen_tare_done">Wyzerowano w tym położeniu.</string>
     <string name="sen_tare_unstable">Telefon się rusza — odstaw go i spróbuj ponownie.</string>
-    <string name="sen_btn_reference">Dodaj wzorzec</string>
-    <string name="sen_btn_weigh">Zważ przedmiot</string>
+    <string name="sen_btn_reference">Czekaj na wzorzec</string>
+    <string name="sen_btn_weigh">Zapisz odczyt do dziennika</string>
     <string name="sen_btn_reset">Skasuj kalibrację czujnikową</string>
 
     <string name="sen_hint_mass">Masa wzorca w gramach</string>
